@@ -18,6 +18,7 @@ static network_node_t *active_networks = NULL;
 
 // Helper 1: Handles the stream, parsing, and cleanup
 CFPropertyListRef copy_vmnets_plist(const char *path) {
+    // XXX Use CFPropertyListCreateWithData to support plist, binary plist and json.
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)path, strlen(path), false);
     if (!url) return NULL;
 
@@ -44,7 +45,7 @@ CFPropertyListRef copy_vmnets_plist(const char *path) {
 // Helper 2: Extracts specific network config and converts to XPC
 // XXX return an error for the client (code, description)
 xpc_object_t get_config_for_name(const char *name) {
-    const char *path = "/Users/nir/Library/Application Support/vmnet-broker/networks.plist";
+    const char *path = "/Users/nir/Library/Application Support/vmnet-broker/networks.json";
     CFPropertyListRef plist = copy_vmnets_plist(path);
     if (!plist) return NULL;
 
