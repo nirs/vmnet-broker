@@ -17,5 +17,7 @@
     <string>_vmnetbroker</string>
     <key>StandardErrorPath</key>
     <string>/Library/Logs/vmnet-broker/stderr.log</string>
+    <key>StandardOutPath</key>
+    <string>/Library/Logs/vmnet-broker/stdout.log</string>
 </dict>
 </plist>
