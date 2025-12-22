@@ -6,26 +6,26 @@
 
 bool verbose = true;
 
-int main(int argc, char *argv[]) {
-    xpc_connection_t connection = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, 0);
+// The connection must be kept open during the lifetime of the client. The
+// kernel invalidates the broker connection after the client terminates.
+static xpc_connection_t connection;
+
+static void connect_to_broker(void) {
+    INFO("connecting to broker");
+
+    connection = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, 0);
     if (connection == NULL) {
         ERROR("faild to create connection");
         exit(EXIT_FAILURE);
     }
 
+    // Must set the event handler but we don't use it. Errors are logged when we
+    // recive a reply.
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
-        if (xpc_get_type(event) == XPC_TYPE_ERROR) {
-            char *desc = xpc_copy_description(event);
-            ERRORF("connecton failed: %s", desc);
-            free(desc);
-            exit(EXIT_FAILURE);
-        }
     });
 
     xpc_connection_resume(connection);
-
-    xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_string(message, REQUEST_COMMAND, COMMAND_GET);
+}
 
     INFO("requesting network");
 
@@ -74,6 +74,9 @@ int main(int argc, char *argv[]) {
     if (status != VMNET_SUCCESS) {
         ERRORF("failed to create network from serialization: (%d) %s", status, vmnet_strerror(status));
         xpc_release(reply);
+int main(int argc, char *argv[]) {
+    connect_to_broker();
+
         exit(EXIT_FAILURE);
     }
 
