@@ -2,7 +2,7 @@ CC = clang
 CFLAGS = -Wall -O2
 LDFLAGS = -framework CoreFoundation -framework vmnet
 
-install_dir := /tmp/vmnet-broker
+install_dir := /opt/vmnet-broker/bin
 launchd_dir := /Library/LaunchDaemons
 service_name := com.github.nirs.vmnet-broker
 user_id := $(shell id -u)

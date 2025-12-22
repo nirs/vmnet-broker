@@ -6,7 +6,7 @@
     <string>com.github.nirs.vmnet-broker</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/tmp/vmnet-broker/vmnet-broker</string>
+        <string>/opt/vmnet-broker/bin/vmnet-broker</string>
     </array>
     <key>MachServices</key>
     <dict>
@@ -16,6 +16,6 @@
     <key>UserName</key>
     <string>_vmnetbroker</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/vmnet-broker/stderr.log</string>
+    <string>/var/log/vmnet-broker/stderr.log</string>
 </dict>
 </plist>
