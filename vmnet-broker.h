@@ -1,6 +1,7 @@
 #ifndef VMNET_BROKER_H
 #define VMNET_BROKER_H
 
+#include <assert.h>
 #include <vmnet/vmnet.h>
 
 // The broker Mach service name.
@@ -23,6 +24,14 @@
 // Error codes
 #define ERROR_INVALID_REQUEST 1
 #define ERROR_CREATE_NETWORK 2
+
+static inline void xpc_clear(xpc_object_t *p) {
+    assert(p);
+    if (*p) {
+        xpc_release(*p);
+        *p = NULL;
+    }
+}
 
 static inline const char *vmnet_strerror(vmnet_return_t v)
 {
