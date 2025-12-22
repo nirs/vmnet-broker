@@ -1,7 +1,8 @@
+#include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
-#include <stdatomic.h>
 
 #include "vmnet-broker.h"
 #include "log.h"
@@ -11,10 +12,85 @@ struct peer {
     pid_t pid;
 };
 
+// Shared network used by one of more clients.
+// TODO: Keep reference count.
+struct network {
+    vmnet_network_ref ref;
+    xpc_object_t serialization;
+};
+
 bool verbose = true;
 
-// Concurrent clients run can access this in parallel.
-static atomic_uint_least64_t global_counter = 0;
+// Mutex protectring shared data accessed by concurrent peers event handlers.
+static pthread_mutex_t shared_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Shared network vended to clients. Created when the first client request a
+// network.
+// TODO: destroy when the last client disconnects.
+static struct network *shared_network;
+
+static void free_network(const struct peer *peer, struct network *network) {
+    if (network) {
+        INFOF("[peer %d] deleting network", peer->pid);
+
+        if (network->ref) {
+            CFRelease(network->ref);
+        }
+        if (network->serialization) {
+            xpc_release(network->serialization);
+        }
+        free(network);
+    }
+}
+
+static struct network *create_network(const struct peer *peer) {
+    vmnet_return_t status;
+
+    INFOF("[peer %d] creating network", peer->pid);
+
+    struct network *network = calloc(1, sizeof(*network));
+    if (network == NULL) {
+        WARNF("[peer %d] failed to allocate network: %s", peer->pid, strerror(errno));
+        return NULL;
+    }
+
+    // TODO: Use mode from broker network configuration.
+    vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
+    if (status != VMNET_SUCCESS) {
+        WARNF("[peer %d] failed to create network configuration: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        goto error;
+    }
+
+    // TODO: Add configuration options from broker network config.
+
+    network->ref = vmnet_network_create(config, &status);
+    if (status != VMNET_SUCCESS) {
+        WARNF("[peer %d] failed to create network ref: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        goto error;
+    }
+
+    network->serialization = vmnet_network_copy_serialization(network->ref, &status);
+    if (status != VMNET_SUCCESS) {
+        WARNF("[peer %d] failed to create network serialization: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        goto error;
+    }
+
+    if (verbose) {
+        // Reveal if the serialization is dumb xpc_data_t or xpc_dictionary_t.
+        char *desc = xpc_copy_description(network->serialization);
+        DEBUGF("[peer %d] network serialization: %s", peer->pid, desc);
+        free(desc);
+    }
+
+    return network;
+
+error:
+    if (config) {
+        CFRelease(config);
+    }
+    free_network(peer, network);
+    return NULL;
+}
 
 static void send_error(const struct peer *peer, xpc_object_t event, int code, const char *message) {
     WARNF("[peer %d] send error: (%d) %s", peer->pid, code, message);
@@ -53,8 +129,8 @@ out:
     xpc_release(reply);
 }
 
-static void send_reply(const struct peer *peer, xpc_object_t event, uint64_t value) {
-    INFOF("[peer %d] send reply: %llu", peer->pid, value);
+static void send_network(const struct peer *peer, xpc_object_t event, struct network *network) {
+    INFOF("[peer %d] send reply", peer->pid);
 
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
@@ -65,7 +141,7 @@ static void send_reply(const struct peer *peer, xpc_object_t event, uint64_t val
         return;
     }
 
-    xpc_dictionary_set_uint64(reply, REPLY_VALUE, value);
+    xpc_dictionary_set_value(reply, REPLY_NETWORK, network->serialization);
     xpc_connection_send_message(peer->connection, reply);
 
     xpc_release(reply);
@@ -96,7 +172,20 @@ static void handle_request(const struct peer *peer, xpc_object_t event) {
         send_error(peer, event, ERROR_INVALID_REQUEST, "unknown command");
         return;
     }
-    send_reply(peer, event, ++global_counter);
+
+    pthread_mutex_lock(&shared_mutex);
+
+    if (shared_network == NULL) {
+        shared_network = create_network(peer);
+        if (shared_network == NULL) {
+            pthread_mutex_unlock(&shared_mutex);
+            send_error(peer, event, ERROR_CREATE_NETWORK, "failed to create network");
+            return;
+        }
+    }
+    send_network(peer, event, shared_network);
+
+    pthread_mutex_unlock(&shared_mutex);
 }
 
 static void handle_event(xpc_connection_t connection) {
