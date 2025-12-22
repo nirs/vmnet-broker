@@ -48,7 +48,7 @@ communicate.
 
 ## Configuration
 
-The broker uses a configuration file (`/Library/Application Support/com.github.nirs.vmnet-broker/networks.json`)
+The broker uses a configuration file (`/etc/vmnet-broker/networks.json`)
 defining the networks. You can add more networks as needed.
 
 ```
