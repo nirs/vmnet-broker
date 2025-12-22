@@ -69,12 +69,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (verbose) {
-        char *desc = xpc_copy_description(serialization);
-        DEBUGF("received network serialization: %s", desc);
-        free(desc);
-    }
-
     vmnet_return_t status;
     vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &status);
     if (status != VMNET_SUCCESS) {

@@ -62,6 +62,7 @@ static struct network *create_network(const struct peer *peer) {
     }
 
     // TODO: Add configuration options from broker network config.
+    // TODO: Log network configuration, showing the defaults we get from vment.
 
     network->ref = vmnet_network_create(config, &status);
     if (status != VMNET_SUCCESS) {
@@ -73,13 +74,6 @@ static struct network *create_network(const struct peer *peer) {
     if (status != VMNET_SUCCESS) {
         WARNF("[peer %d] failed to create network serialization: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
-    }
-
-    if (verbose) {
-        // Reveal if the serialization is dumb xpc_data_t or xpc_dictionary_t.
-        char *desc = xpc_copy_description(network->serialization);
-        DEBUGF("[peer %d] network serialization: %s", peer->pid, desc);
-        free(desc);
     }
 
     return network;
