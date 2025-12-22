@@ -6,7 +6,6 @@ install_dir := /Library/Application Support/vmnet-broker
 launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
-user := _vmnetbroker
 
 all: vmnet-broker vmnet-client
 
@@ -24,7 +23,7 @@ install:
 	sudo mkdir -p "$(log_dir)"
 	sudo chown root:wheel "$(install_dir)"
 	sudo chown root:wheel "$(install_dir)/vmnet-broker"
-	sudo chown $(user):$(user) "$(log_dir)"
+	sudo chown root:wheel "$(log_dir)"
 	sudo chmod 0755 "$(log_dir)"
 
 bootstrap:
