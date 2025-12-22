@@ -66,3 +66,26 @@ How a client can request a network from the broker.
 ```
 XXX example C client code.
 ```
+
+## Creating a user and group for vmnet-broker
+
+The following should be part of the install script or package:
+
+```bash
+set -e
+
+name="_vmnetbroker"
+
+last_id=$(dscl . -list /Users UniqueID | awk '$2 > 200 && $2 < 400 {print $2}' | sort -n | tail -1)
+id=$((last_id+1))
+
+dscl . -create /Groups/$name
+dscl . -create /Groups/$name PrimaryGroupID $id
+
+dscl . -create /Users/$name
+dscl . -create /Users/$name UniqueID $id
+dscl . -create /Users/$name PrimaryGroupID $id
+dscl . -create /Users/$name UserShell /usr/bin/false
+dscl . -create /Users/$name RealName "com.github.nirs.vmnet-broker"
+dscl . -create /Users/$name NFSHomeDirectory /var/empty
+```

@@ -13,8 +13,8 @@
         <key>com.github.nirs.vmnet-broker</key>
         <true/>
     </dict>
-    <key>KeepAlive</key>
-    <false/>
+    <key>UserName</key>
+    <string>_vmnetbroker</string>
     <key>StandardErrorPath</key>
     <string>/tmp/vmnet-broker/stderr.log</string>
 </dict>
