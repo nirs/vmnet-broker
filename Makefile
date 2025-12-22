@@ -4,8 +4,9 @@ LDFLAGS = -framework CoreFoundation -framework vmnet
 
 install_dir := /opt/vmnet-broker/bin
 launchd_dir := /Library/LaunchDaemons
+log_dir := /var/log/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
-user_id := $(shell id -u)
+user := _vmnetbroker
 
 all: vmnet-broker vmnet-client
 
@@ -20,6 +21,9 @@ vmnet-client: client.c
 install:
 	sudo mkdir -p $(install_dir)
 	sudo install vmnet-broker $(install_dir)
+	sudo mkdir -p $(log_dir)
+	sudo chown $(user):$(user) $(log_dir)
+	sudo chmod 0755 $(log_dir)
 
 bootstrap:
 	sudo cp $(service_name).plist $(launchd_dir)
