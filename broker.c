@@ -60,7 +60,7 @@ static vmnet_network_configuration_ref network_config(const struct peer *peer) {
     // TODO: Add configuration options from broker network config.
     // TODO: Log network configuration, showing the defaults we get from vmnet.
 
-    const char *subnet = "192.168.32.1";
+    const char *subnet = "192.168.5.1";
     const char *mask = "255.255.255.0";
     struct in_addr subnet_addr;
     struct in_addr subnet_mask;
