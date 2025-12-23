@@ -103,7 +103,7 @@ static void send_error(const struct peer *peer, xpc_object_t event, int code, co
     xpc_dictionary_set_string(error, ERROR_MESSAGE, message);
 
     xpc_dictionary_set_value(reply, REPLY_ERROR, error);
-    xpc_clear(error);
+    xpc_clear(&error);
 
     if (verbose) {
         char *desc = xpc_copy_description(reply);
