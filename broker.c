@@ -182,7 +182,7 @@ static void handle_request(const struct peer *peer, xpc_object_t event) {
     pthread_mutex_unlock(&shared_mutex);
 }
 
-static void handle_event(xpc_connection_t connection) {
+static void handle_connection(xpc_connection_t connection) {
     // Until we manage list of active connectons, this is a good place to keep
     // the peer. It is shared with all requests on this connection via the
     // handler block. We need to capture now the pid since it is not available
@@ -212,13 +212,16 @@ static void handle_event(xpc_connection_t connection) {
 int main() {
     INFOF("[main] starting pid=%d", getpid());
     xpc_connection_t listener = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
-    if (!listener) {
-        ERROR("[main] failed to create mach service listener");
-        exit(EXIT_FAILURE);
-    }
 
-    xpc_connection_set_event_handler(listener, ^(xpc_object_t connection) {
-        handle_event(connection);
+    xpc_connection_set_event_handler(listener, ^(xpc_object_t event) {
+        xpc_type_t type = xpc_get_type(event);
+        if (type == XPC_TYPE_ERROR) {
+            // We dn't expect any non fatal errors.
+            ERRORF("[main] listener failed: %s", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+            exit(EXIT_FAILURE);
+        } else if (type == XPC_TYPE_CONNECTION) {
+            handle_connection(event);
+        }
     });
 
     xpc_connection_resume(listener);

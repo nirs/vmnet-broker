@@ -20,10 +20,6 @@ static void connect_to_broker(void) {
     INFO("connecting to broker");
 
     connection = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, 0);
-    if (connection == NULL) {
-        ERROR("faild to create connection");
-        exit(EXIT_FAILURE);
-    }
 
     // Must set the event handler but we don't use it. Errors are logged when we
     // recive a reply.
