@@ -21,7 +21,7 @@ struct network {
 
 bool verbose = true;
 
-// Mutex protectring shared data accessed by concurrent peers event handlers.
+// Mutex protecting shared data accessed by concurrent peers event handlers.
 static pthread_mutex_t shared_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Shared network vended to clients. Created when the first client request a
@@ -176,10 +176,10 @@ static void handle_request(const struct peer *peer, xpc_object_t event) {
 }
 
 static void handle_connection(xpc_connection_t connection) {
-    // Until we manage list of active connectons, this is a good place to keep
-    // the peer. It is shared with all requests on this connection via the
-    // handler block. We need to capture now the pid since it is not available
-    // when the connecton invalidates.
+    // Until we manage list of active peers, this is a good place to keep the
+    // peer. It is shared with all requests on this connection via the handler
+    // block. We need to capture the pid now since it is not available when the
+    // connection invalidates.
     struct peer peer = {
         .connection = connection,
         .pid = xpc_connection_get_pid(connection),
@@ -209,7 +209,7 @@ int main() {
     xpc_connection_set_event_handler(listener, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
-            // We dn't expect any non fatal errors.
+            // We don't expect any non fatal errors.
             ERRORF("[main] listener failed: %s", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
             exit(EXIT_FAILURE);
         } else if (type == XPC_TYPE_CONNECTION) {

@@ -22,7 +22,7 @@ static void connect_to_broker(void) {
     connection = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, 0);
 
     // Must set the event handler but we don't use it. Errors are logged when we
-    // recive a reply.
+    // receive a reply.
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
     });
 
