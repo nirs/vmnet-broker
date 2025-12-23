@@ -142,10 +142,9 @@ static void handle_error(const struct peer *peer, xpc_object_t event) {
         // Temporary interruption, may recover.
         INFOF("[peer %d] temporary interruption", peer->pid);
     } else {
-        // Unexpected error, log all the details.
-        char *desc = xpc_copy_description(event);
+        // Unexpected error.
+        const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
         WARNF("[peer %d] unexpected error: %s", peer->pid, desc);
-        free(desc);
     }
 }
 

@@ -42,9 +42,8 @@ static vmnet_network_ref request_network_from_broker(void) {
     vmnet_network_ref network = NULL;
 
     if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
-        char *desc = xpc_copy_description(reply);
+        const char *desc = xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION);
         ERRORF("request failed: %s", desc);
-        free(desc);
         goto out;
     }
 
@@ -57,9 +56,9 @@ static vmnet_network_ref request_network_from_broker(void) {
 
     xpc_object_t error = xpc_dictionary_get_value(reply, REPLY_ERROR);
     if (error) {
-        char *desc = xpc_copy_description(error);
-        ERRORF("broker error: %s", desc);
-        free(desc);
+        int64_t code = xpc_dictionary_get_int64(error, ERROR_CODE);
+        const char *message = xpc_dictionary_get_string(error, ERROR_MESSAGE);
+        ERRORF("broker error: (%lld) %s", code, message);
         goto out;
     }
 
