@@ -11,11 +11,11 @@ all: vmnet-broker vmnet-client
 
 vmnet-broker: broker.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
-	codesign -s - --force $@
+	codesign -f -v --entitlements entitlements.plist -s - $@
 
 vmnet-client: client.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
-	codesign -s - --force $@
+	codesign -f -v --entitlements entitlements.plist -s - $@
 
 install:
 	sudo mkdir -p "$(install_dir)"
