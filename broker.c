@@ -210,6 +210,7 @@ static void handle_event(xpc_connection_t connection) {
 }
 
 int main() {
+    INFOF("[main] starting pid=%d", getpid());
     xpc_connection_t listener = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
     if (!listener) {
         ERROR("[main] failed to create mach service listener");
