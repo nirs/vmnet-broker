@@ -1,7 +1,11 @@
+#include <arpa/inet.h>
+#include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <dispatch/dispatch.h>
+#include <sys/socket.h>
+#include <vmnet/vmnet.h>
 #include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
@@ -43,6 +47,46 @@ static void free_network(const struct peer *peer, struct network *network) {
     }
 }
 
+static vmnet_network_configuration_ref network_config(const struct peer *peer) {
+    vmnet_return_t status;
+
+    // TODO: Use mode from broker network configuration.
+    vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
+    if (config == NULL) {
+        WARNF("[peer %d] failed to create network configuration: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        return NULL;
+    }
+
+    // TODO: Add configuration options from broker network config.
+    // TODO: Log network configuration, showing the defaults we get from vmnet.
+
+    const char *subnet = "192.168.32.1";
+    const char *mask = "255.255.255.0";
+    struct in_addr subnet_addr;
+    struct in_addr subnet_mask;
+
+    if (inet_pton(AF_INET, subnet, &subnet_addr) == 0) {
+        WARNF("[peer %d] failed to parse subnet '%s': %s", peer->pid, subnet, strerror(errno));
+        goto error;
+    }
+    if (inet_pton(AF_INET, mask, &subnet_mask) == 0) {
+        WARNF("[peer %d] failed to parse mask '%s': %s", peer->pid, mask, strerror(errno));
+        goto error;
+    }
+
+    status = vmnet_network_configuration_set_ipv4_subnet(config, &subnet_addr, &subnet_mask);
+    if (status != VMNET_SUCCESS) {
+        WARNF("[peer %d] failed to set ipv4 subnet: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        goto error;
+    }
+
+    return config;
+
+error:
+    CFRelease(config);
+    return NULL;
+}
+
 static struct network *create_network(const struct peer *peer) {
     vmnet_return_t status;
 
@@ -54,15 +98,10 @@ static struct network *create_network(const struct peer *peer) {
         return NULL;
     }
 
-    // TODO: Use mode from broker network configuration.
-    vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
+    vmnet_network_configuration_ref config = network_config(peer);
     if (config == NULL) {
-        WARNF("[peer %d] failed to create network configuration: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
     }
-
-    // TODO: Add configuration options from broker network config.
-    // TODO: Log network configuration, showing the defaults we get from vmnet.
 
     network->ref = vmnet_network_create(config, &status);
     if (network->ref == NULL) {
