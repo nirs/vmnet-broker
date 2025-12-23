@@ -99,12 +99,6 @@ static void send_error(const struct peer *peer, xpc_object_t event, int code, co
     }
 
     xpc_object_t error = xpc_dictionary_create_empty();
-    if (error == NULL) {
-        // Should not happen.
-        ERRORF("[peer %d] failed to create error", peer->pid);
-        goto out;
-    }
-
     xpc_dictionary_set_int64(error, ERROR_CODE, code);
     xpc_dictionary_set_string(error, ERROR_MESSAGE, message);
 
@@ -119,7 +113,6 @@ static void send_error(const struct peer *peer, xpc_object_t event, int code, co
 
     xpc_connection_send_message(peer->connection, reply);
 
-out:
     xpc_release(reply);
 }
 
