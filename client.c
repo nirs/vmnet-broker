@@ -72,7 +72,7 @@ static vmnet_network_ref request_network_from_broker(void) {
 
     vmnet_return_t status;
     network = vmnet_network_create_with_serialization(serialization, &status);
-    if (status != VMNET_SUCCESS) {
+    if (network == NULL) {
         ERRORF("failed to create network from serialization: (%d) %s", status, vmnet_strerror(status));
         goto out;
     }

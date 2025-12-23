@@ -56,22 +56,22 @@ static struct network *create_network(const struct peer *peer) {
 
     // TODO: Use mode from broker network configuration.
     vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
-    if (status != VMNET_SUCCESS) {
+    if (config == NULL) {
         WARNF("[peer %d] failed to create network configuration: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
     }
 
     // TODO: Add configuration options from broker network config.
-    // TODO: Log network configuration, showing the defaults we get from vment.
+    // TODO: Log network configuration, showing the defaults we get from vmnet.
 
     network->ref = vmnet_network_create(config, &status);
-    if (status != VMNET_SUCCESS) {
+    if (network->ref == NULL) {
         WARNF("[peer %d] failed to create network ref: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
     }
 
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
-    if (status != VMNET_SUCCESS) {
+    if (network->serialization == NULL) {
         WARNF("[peer %d] failed to create network serialization: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
     }
