@@ -1,9 +1,9 @@
 #include <arpa/inet.h>
+#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <dispatch/dispatch.h>
 #include <sys/socket.h>
 #include <vmnet/vmnet.h>
 #include <xpc/xpc.h>
@@ -60,31 +60,7 @@ static vmnet_network_configuration_ref network_config(const struct peer *peer) {
     // TODO: Add configuration options from broker network config.
     // TODO: Log network configuration, showing the defaults we get from vmnet.
 
-    const char *subnet = "192.168.5.1";
-    const char *mask = "255.255.255.0";
-    struct in_addr subnet_addr;
-    struct in_addr subnet_mask;
-
-    if (inet_pton(AF_INET, subnet, &subnet_addr) == 0) {
-        WARNF("[peer %d] failed to parse subnet '%s': %s", peer->pid, subnet, strerror(errno));
-        goto error;
-    }
-    if (inet_pton(AF_INET, mask, &subnet_mask) == 0) {
-        WARNF("[peer %d] failed to parse mask '%s': %s", peer->pid, mask, strerror(errno));
-        goto error;
-    }
-
-    status = vmnet_network_configuration_set_ipv4_subnet(config, &subnet_addr, &subnet_mask);
-    if (status != VMNET_SUCCESS) {
-        WARNF("[peer %d] failed to set ipv4 subnet: (%d) %s", peer->pid, status, vmnet_strerror(status));
-        goto error;
-    }
-
     return config;
-
-error:
-    CFRelease(config);
-    return NULL;
 }
 
 static struct network *create_network(const struct peer *peer) {
