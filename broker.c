@@ -2,7 +2,6 @@
 #include <dispatch/dispatch.h>
 #include <errno.h>
 #include <limits.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <vmnet/vmnet.h>
@@ -24,9 +23,6 @@ struct network {
 };
 
 bool verbose = true;
-
-// Mutex protecting shared data accessed by concurrent peers event handlers.
-static pthread_mutex_t shared_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Shared network vended to clients. Created when the first client request a
 // network.
@@ -174,19 +170,14 @@ static void handle_request(const struct peer *peer, xpc_object_t event) {
         return;
     }
 
-    pthread_mutex_lock(&shared_mutex);
-
     if (shared_network == NULL) {
         shared_network = create_network(peer);
         if (shared_network == NULL) {
-            pthread_mutex_unlock(&shared_mutex);
             send_error(peer, event, ERROR_CREATE_NETWORK, "failed to create network");
             return;
         }
     }
     send_network(peer, event, shared_network);
-
-    pthread_mutex_unlock(&shared_mutex);
 }
 
 static void handle_connection(xpc_connection_t connection) {
@@ -218,7 +209,15 @@ static void handle_connection(xpc_connection_t connection) {
 
 int main() {
     INFOF("[main] starting pid=%d", getpid());
-    xpc_connection_t listener = xpc_connection_create_mach_service(MACH_SERVICE_NAME, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+
+    // We use the main queue to minimize memory. The broker is mosly idle and
+    // handle few clients in its lifetime. There is no reason to have more than
+    // one thread.
+    xpc_connection_t listener = xpc_connection_create_mach_service(
+        MACH_SERVICE_NAME,
+        dispatch_get_main_queue(),
+        XPC_CONNECTION_MACH_SERVICE_LISTENER
+    );
 
     xpc_connection_set_event_handler(listener, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
@@ -227,6 +226,11 @@ int main() {
             ERRORF("[main] listener failed: %s", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
             exit(EXIT_FAILURE);
         } else if (type == XPC_TYPE_CONNECTION) {
+            // Use the same queue for all peers. This ensures that we don't need
+            // any locks when modfying internal state, and all events are
+            // serialized.
+            xpc_connection_set_target_queue(event, dispatch_get_main_queue());
+
             handle_connection(event);
         }
     });
