@@ -11,6 +11,10 @@
         <key>com.github.nirs.vmnet-broker</key>
         <true/>
     </dict>
+    <key>EnableTransactions</key>
+    <true/>
+    <key>ExitTimeout</key>
+    <integer>60</integer>
     <key>StandardErrorPath</key>
     <string>/Library/Logs/vmnet-broker/stderr.log</string>
     <key>StandardOutPath</key>
