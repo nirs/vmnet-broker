@@ -158,6 +158,13 @@ static void handle_error(const struct peer *peer, xpc_object_t event) {
         // Client connection is dead - invalidate resources owned by client.
         connected_peers--;
         INFOF("[peer %d] disconnected (connected peers %d)", peer->pid, connected_peers);
+
+        // If this is the last peer, end the transaction so launchd will be able
+        // stop the broker quickly if needed.
+        if (connected_peers == 0) {
+            DEBUG("Ending xpc transaction - broker can be stopped.");
+            xpc_transaction_end();
+        }
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
         // Temporary interruption, may recover.
         INFOF("[peer %d] temporary interruption", peer->pid);
@@ -201,6 +208,13 @@ static void handle_connection(xpc_connection_t connection) {
 
     connected_peers++;
     INFOF("[peer %d] connected (connected peers %d)", peer.pid, connected_peers);
+
+    // If this is the first peer, create a transaction so launchd will know that
+    // we are active and will not try to stop the service to free resources.
+    if (connected_peers == 1) {
+        DEBUG("Starting xpc transaction to prevent termination while peers are connected");
+        xpc_transaction_begin();
+    }
 
     // TODO: register the peer and extract the audit token
     // TODO: authorize the client using the audit token
