@@ -162,7 +162,7 @@ static void handle_error(const struct peer *peer, xpc_object_t event) {
         // If this is the last peer, end the transaction so launchd will be able
         // stop the broker quickly if needed.
         if (connected_peers == 0) {
-            DEBUG("Ending xpc transaction - broker can be stopped.");
+            DEBUGF("[peer %d] ending transaction - broker can be stopped", peer->pid);
             xpc_transaction_end();
         }
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
@@ -212,7 +212,7 @@ static void handle_connection(xpc_connection_t connection) {
     // If this is the first peer, create a transaction so launchd will know that
     // we are active and will not try to stop the service to free resources.
     if (connected_peers == 1) {
-        DEBUG("Starting xpc transaction to prevent termination while peers are connected");
+        DEBUGF("[peer %d] starting transaction to prevent termination while peers are connected", peer.pid);
         xpc_transaction_begin();
     }
 
