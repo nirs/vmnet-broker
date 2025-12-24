@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <vmnet/vmnet.h>
 #include <xpc/xpc.h>
 
@@ -247,9 +248,50 @@ static void setup_listener(void) {
     xpc_connection_resume(listener);
 }
 
+static void setup_signal_handlers(void) {
+    DEBUG("[main] setting up signal handlers");
+
+    int signals[] = {SIGINT, SIGTERM};
+
+    for (int i = 0; i < ARRAY_SIZE(signals); i++) {
+        int sig = signals[i];
+
+        // Ignore the signal so we can handle it on the runloop.
+        signal(sig, SIG_IGN);
+
+        dispatch_source_t source = dispatch_source_create(
+            DISPATCH_SOURCE_TYPE_SIGNAL,
+            sig,
+            0,
+            dispatch_get_main_queue()
+        );
+
+        // 5. Set the event handler (the "block" that runs when signal is received)
+        dispatch_source_set_event_handler(source, ^{
+            INFOF("[main] received signal %d", sig);
+
+            // IMPORTANT: terminating the broker when clients are connected will
+            // cause the network to become orphaned, and we will not be able to
+            // create it again. The next time the broker is restarted, creating
+            // the same network will fail. If we use dymanic subnet, we will get
+            // the next available subnet, which will change the VM IP address.
+            if (connected_peers > 0) {
+                INFOF("[main] %d peer connected - ignoring termination signal", connected_peers);
+                return;
+            }
+
+            INFO("[main] no active clients - terminating");
+            exit(EXIT_SUCCESS);
+        });
+
+        dispatch_resume(source);
+    }
+}
+
 int main() {
     INFOF("[main] starting pid=%d", getpid());
 
+    setup_signal_handlers();
     setup_listener();
 
     dispatch_main();

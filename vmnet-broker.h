@@ -25,6 +25,8 @@
 #define ERROR_INVALID_REQUEST 1
 #define ERROR_CREATE_NETWORK 2
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
 static inline void xpc_clear(xpc_object_t *p) {
     assert(p);
     if (*p) {

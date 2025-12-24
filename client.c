@@ -27,8 +27,6 @@ static int kq = -1;
 // Exit status.
 static int status;
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-
 static void connect_to_broker(void) {
     INFO("connecting to broker");
 
