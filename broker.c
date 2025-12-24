@@ -290,7 +290,7 @@ static void setup_signal_handlers(void) {
             // the same network will fail. If we use dymanic subnet, we will get
             // the next available subnet, which will change the VM IP address.
             if (connected_peers > 0) {
-                INFOF("[main] %d peer connected - ignoring termination signal", connected_peers);
+                INFOF("[main] %d peers connected - ignoring termination signal", connected_peers);
                 return;
             }
 
