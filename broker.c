@@ -29,6 +29,10 @@ bool verbose = true;
 // TODO: destroy when the last client disconnects.
 static struct network *shared_network;
 
+// Number of conected peers, used to prevent termination when peers are
+// connected. Using signed int to make it easy to detect incorrect counting.
+static int connected_peers;
+
 static void free_network(const struct peer *peer, struct network *network) {
     if (network) {
         INFOF("[peer %d] deleting network", peer->pid);
@@ -148,7 +152,8 @@ static void send_network(const struct peer *peer, xpc_object_t event, struct net
 static void handle_error(const struct peer *peer, xpc_object_t event) {
     if (event == XPC_ERROR_CONNECTION_INVALID) {
         // Client connection is dead - invalidate resources owned by client.
-        INFOF("[peer %d] disconnected", peer->pid);
+        connected_peers--;
+        INFOF("[peer %d] disconnected (connected peers %d)", peer->pid, connected_peers);
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
         // Temporary interruption, may recover.
         INFOF("[peer %d] temporary interruption", peer->pid);
@@ -190,7 +195,8 @@ static void handle_connection(xpc_connection_t connection) {
         .pid = xpc_connection_get_pid(connection),
     };
 
-    INFOF("[peer %d] connected", peer.pid);
+    connected_peers++;
+    INFOF("[peer %d] connected (connected peers %d)", peer.pid, connected_peers);
 
     // TODO: register the peer and extract the audit token
     // TODO: authorize the client using the audit token
