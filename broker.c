@@ -24,6 +24,9 @@ struct network {
 
 bool verbose = true;
 
+// Accepting XPC connections.
+static xpc_connection_t listener;
+
 // Shared network vended to clients. Created when the first client request a
 // network.
 // TODO: destroy when the last client disconnects.
@@ -213,13 +216,13 @@ static void handle_connection(xpc_connection_t connection) {
     xpc_connection_resume(connection);
 }
 
-int main() {
-    INFOF("[main] starting pid=%d", getpid());
+static void setup_listener(void) {
+    DEBUG("[main] setting up listener");
 
     // We use the main queue to minimize memory. The broker is mosly idle and
     // handle few clients in its lifetime. There is no reason to have more than
     // one thread.
-    xpc_connection_t listener = xpc_connection_create_mach_service(
+    listener = xpc_connection_create_mach_service(
         MACH_SERVICE_NAME,
         dispatch_get_main_queue(),
         XPC_CONNECTION_MACH_SERVICE_LISTENER
@@ -242,5 +245,12 @@ int main() {
     });
 
     xpc_connection_resume(listener);
+}
+
+int main() {
+    INFOF("[main] starting pid=%d", getpid());
+
+    setup_listener();
+
     dispatch_main();
 }
