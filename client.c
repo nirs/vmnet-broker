@@ -1,8 +1,10 @@
+#include <signal.h>
 #include <stdlib.h>
+#include <sys/event.h>
 #include <time.h>
+#include <uuid/uuid.h>
 #include <vmnet/vmnet.h>
 #include <xpc/xpc.h>
-#include <uuid/uuid.h>
 
 #include "vmnet-broker.h"
 #include "log.h"
@@ -15,6 +17,17 @@ static xpc_connection_t connection;
 
 // Client starts a vmnet interface using the network returned by the broker.
 static interface_ref interface;
+
+// Used to start and stop the interface.
+static dispatch_queue_t vmnet_queue;
+
+// Used to wait for signals.
+static int kq = -1;
+
+// Exit status.
+static int status;
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 static void connect_to_broker(void) {
     INFO("connecting to broker");
@@ -118,19 +131,19 @@ static void write_vmnet_info(xpc_object_t param)
 }
 
 static void start_interface_from_network(vmnet_network_ref network) {
-    DEBUG("starting vmnet interface from network");
+    INFO("starting vmnet interface from network");
+
+    vmnet_queue = dispatch_queue_create("com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL);
 
     xpc_object_t desc = xpc_dictionary_create_empty();
-    dispatch_queue_t queue = dispatch_queue_create("com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL);
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
 
-    interface = vmnet_interface_start_with_network(network, desc, queue, ^(vmnet_return_t status, xpc_object_t param){
+    interface = vmnet_interface_start_with_network(network, desc, vmnet_queue, ^(vmnet_return_t status, xpc_object_t param){
         if (status != VMNET_SUCCESS) {
             ERRORF("failed to start vment interface with network: (%d) %s", status, vmnet_strerror(status));
             exit(EXIT_FAILURE);
         }
 
-        INFO("vmnet interface started");
         write_vmnet_info(param);
         dispatch_semaphore_signal(completed);
     });
@@ -138,11 +151,102 @@ static void start_interface_from_network(vmnet_network_ref network) {
     dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
 
     dispatch_release(completed);
-    dispatch_release(queue);
     xpc_release(desc);
+
+    INFO("vmnet interface started");
+}
+
+static void stop_interface(void)
+{
+    if (interface == NULL) {
+        return;
+    }
+
+    INFO("[main] stopping vmnet interface");
+
+    dispatch_semaphore_t completed = dispatch_semaphore_create(0);
+    vmnet_return_t status = vmnet_stop_interface(
+            interface, vmnet_queue, ^(vmnet_return_t status) {
+        if (status != VMNET_SUCCESS) {
+            ERRORF("[main] failed to stop vmnet interface: (%d) %s", status, vmnet_strerror(status));
+            exit(EXIT_FAILURE);
+        }
+        dispatch_semaphore_signal(completed);
+    });
+
+    if (status != VMNET_SUCCESS) {
+        ERRORF("[main] failed to stop vment interface: (%d) %s", status, vmnet_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
+    dispatch_release(completed);
+
+    dispatch_release(vmnet_queue);
+    vmnet_queue = NULL;
+
+    INFO("[main] vmnet interface stopped");
+}
+
+static void setup_kq(void)
+{
+    kq = kqueue();
+    if (kq == -1) {
+        ERRORF("[main] kqueue: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    struct kevent changes[] = {
+        {.ident=SIGTERM, .filter=EVFILT_SIGNAL, .flags=EV_ADD},
+        {.ident=SIGINT, .filter=EVFILT_SIGNAL, .flags=EV_ADD},
+    };
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    for (size_t i = 0; i < ARRAY_SIZE(changes); i++) {
+        if (changes[i].filter == EVFILT_SIGNAL) {
+            sigaddset(&mask, changes[i].ident);
+        }
+    }
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) != 0) {
+        ERRORF("[main] sigprocmask: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    // We will receive EPIPE on the socket.
+    signal(SIGPIPE, SIG_IGN);
+
+    if (kevent(kq, changes, ARRAY_SIZE(changes), NULL, 0, NULL) != 0) {
+        ERRORF("[main] kevent: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void wait_for_termination(void)
+{
+    INFO("[main] waiting for termination");
+
+    struct kevent events[1];
+
+    while (1) {
+        int n = kevent(kq, NULL, 0, events, 1, NULL);
+        if (n < 0) {
+            ERRORF("[main] kevent: %s", strerror(errno));
+            status |= EXIT_FAILURE;
+            break;
+        }
+        if (n > 0) {
+            if (events[0].filter == EVFILT_SIGNAL) {
+                INFOF("[main] received signal %s", strsignal(events[0].ident));
+                status = EXIT_SUCCESS;
+                break;
+            }
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
+    setup_kq();
     connect_to_broker();
 
     vmnet_network_ref network = request_network_from_broker();
@@ -150,16 +254,11 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // NOTE: This requires root. Real client will create a virtual machine with
-    // a VZVmnetNetworkDeviceAttachment, which does not require root or the
-    // "com.apple.networking" entitlement. The virtualization framework service
-    // for the vm have the privileges to start the vment interface.
-    // https://developer.apple.com/documentation/virtualization/vzvmnetnetworkdeviceattachment?language=objc
+    // NOTE: This requires root or com.apple.security.virtualization entitlement.
     start_interface_from_network(network);
 
-    // Simulate starting a VM. The connection is alive while the process is running.
-    INFO("waiting for termination");
-    sleep(300);
+    wait_for_termination();
+    stop_interface();
 
-    return 0;
+    return status;
 }
