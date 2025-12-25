@@ -162,8 +162,17 @@ static void send_network(const struct peer *peer, xpc_object_t event, struct net
     xpc_release(reply);
 }
 
-static void shutdown_later(void) {
-    DEBUGF("[main] shutting down in %d seconds", idle_timeout_sec);
+// Avoid orphaned network if broker is stopped before clients.
+static void shutdown_shared_network(const struct peer *peer) {
+    if (shared_network) {
+        DEBUGF("[peer %d] shutdown shared network", peer->pid);
+        free_network(peer, shared_network);
+        shared_network = NULL;
+    }
+}
+
+static void shutdown_later(const struct peer *peer) {
+    DEBUGF("[peer %d] shutting down in %d seconds", peer->pid, idle_timeout_sec);
 
     // This is impossible since the first connected peer canceled the timer, and
     // shutdown_later is called when the last peer has disconnected.
@@ -180,8 +189,13 @@ static void shutdown_later(void) {
 
     dispatch_source_set_timer(idle_timer, start, DISPATCH_TIME_FOREVER, leeway);
 
+    // Snapshot the peer data to be moved to the block's heap storage.
+    // TODO: Find a better way to log context.
+    struct peer captured_peer = *peer;
+
     dispatch_source_set_event_handler(idle_timer, ^{
-        INFO("[main] idle timeout - shutting down");
+        INFOF("[peer %d] idle timeout - shutting down", captured_peer.pid);
+        shutdown_shared_network(&captured_peer);
         exit(EXIT_SUCCESS);
     });
 
@@ -201,7 +215,7 @@ static void handle_error(const struct peer *peer, xpc_object_t event) {
             xpc_transaction_end();
 
             // Shut down if we are idle for long time.
-            shutdown_later();
+            shutdown_later(peer);
         }
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
         // Temporary interruption, may recover.
@@ -329,16 +343,18 @@ static void setup_signal_handlers(void) {
             INFOF("[main] received signal %d", sig);
 
             // IMPORTANT: terminating the broker when clients are connected will
-            // cause the network to become orphaned, and we will not be able to
-            // create it again. The next time the broker is restarted, creating
-            // the same network will fail. If we use dymanic subnet, we will get
-            // the next available subnet, which will change the VM IP address.
+            // destroy the bridge.
             if (connected_peers > 0) {
-                INFOF("[main] %d peers connected - ignoring termination signal", connected_peers);
+                WARNF("[main] %d peers connected - ignoring termination signal", connected_peers);
                 return;
             }
 
             INFO("[main] no active clients - shutting down");
+
+            // TODO: Find a better way to log the context.
+            struct peer fake_peer = {.pid=-1};
+            shutdown_shared_network(&fake_peer);
+
             exit(EXIT_SUCCESS);
         });
 
