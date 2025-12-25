@@ -2,6 +2,7 @@
 #include <dispatch/dispatch.h>
 #include <errno.h>
 #include <limits.h>
+#include <objc/objc-api.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -25,17 +26,26 @@ struct network {
 
 bool verbose = true;
 
+// Time to wait in seconds before shutting down after the broker became idle. We
+// want to keep the network reservation in case a user want to use the same
+// network soon.
+// TODO: Read from user perferences.
+static const int idle_timeout_sec = 30;
+
 // Accepting XPC connections.
 static xpc_connection_t listener;
 
 // Shared network vended to clients. Created when the first client request a
-// network.
-// TODO: destroy when the last client disconnects.
+// network. Automatically released by shutting down after idle timeout.
 static struct network *shared_network;
 
 // Number of conected peers, used to prevent termination when peers are
 // connected. Using signed int to make it easy to detect incorrect counting.
 static int connected_peers;
+
+// Used in shutdown_later() to invalide a scheduled shutdown when new peer
+// conected since we started an idle shutdown.
+static uint64_t idle_generation;
 
 static void free_network(const struct peer *peer, struct network *network) {
     if (network) {
@@ -153,6 +163,22 @@ static void send_network(const struct peer *peer, xpc_object_t event, struct net
     xpc_release(reply);
 }
 
+static void shutdown_later(void) {
+    DEBUGF("[main] shutting down in %d seconds (#%llu)", idle_timeout_sec, idle_generation);
+
+    uint64_t start_generation = idle_generation;
+    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC);
+
+    dispatch_after(when, dispatch_get_main_queue(), ^{
+        if (start_generation != idle_generation) {
+            DEBUGF("[main] peers connected since shutdown started, canceling stale shutdown (#%llu)", start_generation);
+            return;
+        }
+        INFO("[main] idle timeout - shutting down");
+        exit(EXIT_SUCCESS);
+    });
+}
+
 static void handle_error(const struct peer *peer, xpc_object_t event) {
     if (event == XPC_ERROR_CONNECTION_INVALID) {
         // Client connection is dead - invalidate resources owned by client.
@@ -164,6 +190,9 @@ static void handle_error(const struct peer *peer, xpc_object_t event) {
         if (connected_peers == 0) {
             DEBUGF("[peer %d] ending transaction - broker can be stopped", peer->pid);
             xpc_transaction_end();
+
+            // Shut down if we are idle for long time.
+            shutdown_later();
         }
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
         // Temporary interruption, may recover.
@@ -206,7 +235,10 @@ static void handle_connection(xpc_connection_t connection) {
         .pid = xpc_connection_get_pid(connection),
     };
 
+    // Count connected peers and invalidate pending shutdown.
     connected_peers++;
+    idle_generation++;
+
     INFOF("[peer %d] connected (connected peers %d)", peer.pid, connected_peers);
 
     // If this is the first peer, create a transaction so launchd will know that
@@ -294,7 +326,7 @@ static void setup_signal_handlers(void) {
                 return;
             }
 
-            INFO("[main] no active clients - terminating");
+            INFO("[main] no active clients - shutting down");
             exit(EXIT_SUCCESS);
         });
 
