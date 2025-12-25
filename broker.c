@@ -43,9 +43,8 @@ static struct network *shared_network;
 // connected. Using signed int to make it easy to detect incorrect counting.
 static int connected_peers;
 
-// Used in shutdown_later() to invalide a scheduled shutdown when new peer
-// conected since we started an idle shutdown.
-static uint64_t idle_generation;
+// Used to shutdown if the broker is idle for idle_timeout_sec.
+static dispatch_source_t idle_timer;
 
 static void free_network(const struct peer *peer, struct network *network) {
     if (network) {
@@ -164,19 +163,29 @@ static void send_network(const struct peer *peer, xpc_object_t event, struct net
 }
 
 static void shutdown_later(void) {
-    DEBUGF("[main] shutting down in %d seconds (#%llu)", idle_timeout_sec, idle_generation);
+    DEBUGF("[main] shutting down in %d seconds", idle_timeout_sec);
 
-    uint64_t start_generation = idle_generation;
-    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC);
+    // This is impossible since the first connected peer canceled the timer, and
+    // shutdown_later is called when the last peer has disconnected.
+    assert(idle_timer == NULL && "idle timer running in shutdown_later");
 
-    dispatch_after(when, dispatch_get_main_queue(), ^{
-        if (start_generation != idle_generation) {
-            DEBUGF("[main] peers connected since shutdown started, canceling stale shutdown (#%llu)", start_generation);
-            return;
-        }
+    idle_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+
+    assert(idle_timer != NULL && "failed to create idle timer");
+
+    dispatch_time_t start = dispatch_time(DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC);
+    // Allow the system up to 1 second leeway if this can improve power
+    // consumption and system performance.
+    uint64_t leeway = 1 * NSEC_PER_SEC;
+
+    dispatch_source_set_timer(idle_timer, start, DISPATCH_TIME_FOREVER, leeway);
+
+    dispatch_source_set_event_handler(idle_timer, ^{
         INFO("[main] idle timeout - shutting down");
         exit(EXIT_SUCCESS);
     });
+
+    dispatch_resume(idle_timer);
 }
 
 static void handle_error(const struct peer *peer, xpc_object_t event) {
@@ -235,17 +244,20 @@ static void handle_connection(xpc_connection_t connection) {
         .pid = xpc_connection_get_pid(connection),
     };
 
-    // Count connected peers and invalidate pending shutdown.
     connected_peers++;
-    idle_generation++;
-
     INFOF("[peer %d] connected (connected peers %d)", peer.pid, connected_peers);
 
-    // If this is the first peer, create a transaction so launchd will know that
-    // we are active and will not try to stop the service to free resources.
     if (connected_peers == 1) {
+        // Create a transaction so launchd will know that we are active and will
+        // not try to stop the service to free resources.
         DEBUGF("[peer %d] starting transaction to prevent termination while peers are connected", peer.pid);
         xpc_transaction_begin();
+
+        if (idle_timer) {
+            DEBUGF("[peer %d] canceling idle shutdown", peer.pid);
+            dispatch_source_cancel(idle_timer);
+            idle_timer = NULL;
+        }
     }
 
     // TODO: register the peer and extract the audit token
