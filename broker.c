@@ -8,9 +8,9 @@
 #include "network.h"
 #include "log.h"
 
-struct peer {
+struct context {
+    char name[sizeof("peer 9223372036854775807")];
     xpc_connection_t connection;
-    pid_t pid;
 };
 
 // Shared network used by one of more clients.
@@ -21,6 +21,9 @@ struct network {
 };
 
 bool verbose = true;
+
+// The context used for main() and signal handlers.
+static const struct context main_context = { .name = "main" };
 
 // Time to wait in seconds before shutting down after the broker became idle. We
 // want to keep the network reservation in case a user want to use the same
@@ -42,13 +45,18 @@ static int connected_peers;
 // Used to shutdown if the broker is idle for idle_timeout_sec.
 static dispatch_source_t idle_timer;
 
-static void free_network(const struct peer *peer, struct network *network) {
+static void init_context(struct context *ctx, xpc_connection_t connection) {
+    snprintf(ctx->name, sizeof(ctx->name), "peer %d", xpc_connection_get_pid(connection));
+    ctx->connection = connection;
+}
+
+static void free_network(const struct context *ctx, struct network *network) {
     if (network) {
         if (network->ref) {
             struct network_info info;
             network_info(network->ref, &info);
-            INFOF("[peer %d] deleted network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-                peer->pid, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
+            INFOF("[%s] deleted network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+                ctx->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
             CFRelease(network->ref);
         }
         if (network->serialization) {
@@ -58,13 +66,13 @@ static void free_network(const struct peer *peer, struct network *network) {
     }
 }
 
-static vmnet_network_configuration_ref network_config(const struct peer *peer) {
+static vmnet_network_configuration_ref network_config(const struct context *ctx) {
     vmnet_return_t status;
 
     // TODO: Use mode from broker network configuration.
     vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
     if (config == NULL) {
-        WARNF("[peer %d] failed to create network configuration: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        WARNF("[%s] failed to create network configuration: (%d) %s", ctx->name, status, vmnet_strerror(status));
         return NULL;
     }
 
@@ -74,34 +82,34 @@ static vmnet_network_configuration_ref network_config(const struct peer *peer) {
     return config;
 }
 
-static struct network *create_network(const struct peer *peer) {
+static struct network *create_network(const struct context *ctx) {
     vmnet_return_t status;
 
     struct network *network = calloc(1, sizeof(*network));
     if (network == NULL) {
-        WARNF("[peer %d] failed to allocate network: %s", peer->pid, strerror(errno));
+        WARNF("[%s] failed to allocate network: %s", ctx->name, strerror(errno));
         return NULL;
     }
 
-    vmnet_network_configuration_ref config = network_config(peer);
+    vmnet_network_configuration_ref config = network_config(ctx);
     if (config == NULL) {
         goto error;
     }
 
     network->ref = vmnet_network_create(config, &status);
     if (network->ref == NULL) {
-        WARNF("[peer %d] failed to create network ref: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        WARNF("[%s] failed to create network ref: (%d) %s", ctx->name, status, vmnet_strerror(status));
         goto error;
     }
 
     struct network_info info;
     network_info(network->ref, &info);
-    INFOF("[peer %d] created network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        peer->pid, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
+    INFOF("[%s] created network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        ctx->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
 
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
     if (network->serialization == NULL) {
-        WARNF("[peer %d] failed to create network serialization: (%d) %s", peer->pid, status, vmnet_strerror(status));
+        WARNF("[%s] failed to create network serialization: (%d) %s", ctx->name, status, vmnet_strerror(status));
         goto error;
     }
 
@@ -111,18 +119,18 @@ error:
     if (config) {
         CFRelease(config);
     }
-    free_network(peer, network);
+    free_network(ctx, network);
     return NULL;
 }
 
-static void send_error(const struct peer *peer, xpc_object_t event, int code, const char *message) {
-    WARNF("[peer %d] send error: (%d) %s", peer->pid, code, message);
+static void send_error(const struct context *ctx, xpc_object_t event, int code, const char *message) {
+    WARNF("[%s] send error: (%d) %s", ctx->name, code, message);
 
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
         // Event does not include the return address.
         char *desc = xpc_copy_description(event);
-        WARNF("[peer %d] failed create reply for event: %s", peer->pid, desc);
+        WARNF("[%s] failed create reply for event: %s", ctx->name, desc);
         free(desc);
         return;
     }
@@ -136,44 +144,44 @@ static void send_error(const struct peer *peer, xpc_object_t event, int code, co
 
     if (verbose) {
         char *desc = xpc_copy_description(reply);
-        DEBUGF("[peer %d] send error reply: %s", peer->pid, desc);
+        DEBUGF("[%s] send error reply: %s", ctx->name, desc);
         free(desc);
     }
 
-    xpc_connection_send_message(peer->connection, reply);
+    xpc_connection_send_message(ctx->connection, reply);
 
     xpc_release(reply);
 }
 
-static void send_network(const struct peer *peer, xpc_object_t event, struct network *network) {
-    INFOF("[peer %d] send reply", peer->pid);
+static void send_network(const struct context *ctx, xpc_object_t event, struct network *network) {
+    INFOF("[%s] send reply", ctx->name);
 
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
         // Event does not include the return address.
         char *desc = xpc_copy_description(event);
-        WARNF("[peer %d] failed create reply for event: %s", peer->pid, desc);
+        WARNF("[%s] failed create reply for event: %s", ctx->name, desc);
         free(desc);
         return;
     }
 
     xpc_dictionary_set_value(reply, REPLY_NETWORK, network->serialization);
-    xpc_connection_send_message(peer->connection, reply);
+    xpc_connection_send_message(ctx->connection, reply);
 
     xpc_release(reply);
 }
 
 // Avoid orphaned network if broker is stopped before clients.
-static void shutdown_shared_network(const struct peer *peer) {
+static void shutdown_shared_network(const struct context *ctx) {
     if (shared_network) {
-        DEBUGF("[peer %d] shutdown shared network", peer->pid);
-        free_network(peer, shared_network);
+        DEBUGF("[%s] shutdown shared network", ctx->name);
+        free_network(ctx, shared_network);
         shared_network = NULL;
     }
 }
 
-static void shutdown_later(const struct peer *peer) {
-    DEBUGF("[peer %d] shutting down in %d seconds", peer->pid, idle_timeout_sec);
+static void shutdown_later(const struct context *ctx) {
+    DEBUGF("[%s] shutting down in %d seconds", ctx->name, idle_timeout_sec);
 
     // This is impossible since the first connected peer canceled the timer, and
     // shutdown_later is called when the last peer has disconnected.
@@ -190,100 +198,93 @@ static void shutdown_later(const struct peer *peer) {
 
     dispatch_source_set_timer(idle_timer, start, DISPATCH_TIME_FOREVER, leeway);
 
-    // Snapshot the peer data to be moved to the block's heap storage.
-    // TODO: Find a better way to log context.
-    struct peer captured_peer = *peer;
-
     dispatch_source_set_event_handler(idle_timer, ^{
-        INFOF("[peer %d] idle timeout - shutting down", captured_peer.pid);
-        shutdown_shared_network(&captured_peer);
+        INFOF("[%s] idle timeout - shutting down", main_context.name);
+        shutdown_shared_network(&main_context);
         exit(EXIT_SUCCESS);
     });
 
     dispatch_resume(idle_timer);
 }
 
-static void handle_error(const struct peer *peer, xpc_object_t event) {
+static void handle_error(const struct context *ctx, xpc_object_t event) {
     if (event == XPC_ERROR_CONNECTION_INVALID) {
         // Client connection is dead - invalidate resources owned by client.
         connected_peers--;
-        INFOF("[peer %d] disconnected (connected peers %d)", peer->pid, connected_peers);
+        INFOF("[%s] disconnected (connected peers %d)", ctx->name, connected_peers);
 
         // If this is the last peer, end the transaction so launchd will be able
         // stop the broker quickly if needed.
         if (connected_peers == 0) {
-            DEBUGF("[peer %d] ending transaction - broker can be stopped", peer->pid);
+            DEBUGF("[%s] ending transaction - broker can be stopped", ctx->name);
             xpc_transaction_end();
 
             // Shut down if we are idle for long time.
-            shutdown_later(peer);
+            shutdown_later(ctx);
         }
     } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
         // Temporary interruption, may recover.
-        INFOF("[peer %d] temporary interruption", peer->pid);
+        INFOF("[%s] temporary interruption", ctx->name);
     } else {
         // Unexpected error.
         const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-        WARNF("[peer %d] unexpected error: %s", peer->pid, desc);
+        WARNF("[%s] unexpected error: %s", ctx->name, desc);
     }
 }
 
-static void handle_request(const struct peer *peer, xpc_object_t event) {
+static void handle_request(const struct context *ctx, xpc_object_t event) {
     const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
     if (command == NULL) {
-        send_error(peer, event, ERROR_INVALID_REQUEST, "no command");
+        send_error(ctx, event, ERROR_INVALID_REQUEST, "no command");
         return;
     }
     if (strcmp(command, COMMAND_GET) != 0) {
-        send_error(peer, event, ERROR_INVALID_REQUEST, "unknown command");
+        send_error(ctx, event, ERROR_INVALID_REQUEST, "unknown command");
         return;
     }
 
     if (shared_network == NULL) {
-        shared_network = create_network(peer);
+        shared_network = create_network(ctx);
         if (shared_network == NULL) {
-            send_error(peer, event, ERROR_CREATE_NETWORK, "failed to create network");
+            send_error(ctx, event, ERROR_CREATE_NETWORK, "failed to create network");
             return;
         }
     }
-    send_network(peer, event, shared_network);
+    send_network(ctx, event, shared_network);
 }
 
 static void handle_connection(xpc_connection_t connection) {
+    // TODO: authorize the peer using the audit token
+
     // Until we manage list of active peers, this is a good place to keep the
-    // peer. It is shared with all requests on this connection via the handler
-    // block. We need to capture the pid now since it is not available when the
-    // connection invalidates.
-    struct peer peer = {
-        .connection = connection,
-        .pid = xpc_connection_get_pid(connection),
-    };
+    // peer details. It is shared with all requests on this connection via the
+    // handler block. We need to capture the pid now since it is not available
+    // when the connection invalidates.
+    struct context ctx;
+    init_context(&ctx, connection);
 
     connected_peers++;
-    INFOF("[peer %d] connected (connected peers %d)", peer.pid, connected_peers);
+    INFOF("[%s] connected (connected peers %d)", ctx.name, connected_peers);
 
     if (connected_peers == 1) {
         // Create a transaction so launchd will know that we are active and will
         // not try to stop the service to free resources.
-        DEBUGF("[peer %d] starting transaction to prevent termination while peers are connected", peer.pid);
+        DEBUGF("[%s] starting transaction to prevent termination while peers are connected", ctx.name);
         xpc_transaction_begin();
 
         if (idle_timer) {
-            DEBUGF("[peer %d] canceling idle shutdown", peer.pid);
+            DEBUGF("[%s] canceling idle shutdown", ctx.name);
             dispatch_source_cancel(idle_timer);
             idle_timer = NULL;
         }
     }
 
-    // TODO: register the peer and extract the audit token
-    // TODO: authorize the client using the audit token
-
-    xpc_connection_set_event_handler(peer.connection, ^(xpc_object_t event) {
+    xpc_connection_set_event_handler(ctx.connection, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
-            handle_error(&peer, event);
+            handle_error(&ctx, event);
         } else if (type == XPC_TYPE_DICTIONARY) {
-            handle_request(&peer, event);
+            handle_request(&ctx, event);
         }
     });
 
@@ -291,7 +292,7 @@ static void handle_connection(xpc_connection_t connection) {
 }
 
 static void setup_listener(void) {
-    DEBUG("[main] setting up listener");
+    DEBUGF("[%s] setting up listener", main_context.name);
 
     // We use the main queue to minimize memory. The broker is mosly idle and
     // handle few clients in its lifetime. There is no reason to have more than
@@ -322,7 +323,7 @@ static void setup_listener(void) {
 }
 
 static void setup_signal_handlers(void) {
-    DEBUG("[main] setting up signal handlers");
+    DEBUGF("[%s] setting up signal handlers", main_context.name);
 
     int signals[] = {SIGINT, SIGTERM};
 
@@ -341,21 +342,17 @@ static void setup_signal_handlers(void) {
 
         // 5. Set the event handler (the "block" that runs when signal is received)
         dispatch_source_set_event_handler(source, ^{
-            INFOF("[main] received signal %d", sig);
+            INFOF("[%s] received signal %d", main_context.name, sig);
 
             // IMPORTANT: terminating the broker when clients are connected will
             // destroy the bridge.
             if (connected_peers > 0) {
-                WARNF("[main] %d peers connected - ignoring termination signal", connected_peers);
+                WARNF("[%s] %d peers connected - ignoring termination signal", main_context.name, connected_peers);
                 return;
             }
 
-            INFO("[main] no active clients - shutting down");
-
-            // TODO: Find a better way to log the context.
-            struct peer fake_peer = {.pid=-1};
-            shutdown_shared_network(&fake_peer);
-
+            INFOF("[%s] no active clients - shutting down", main_context.name);
+            shutdown_shared_network(&main_context);
             exit(EXIT_SUCCESS);
         });
 
@@ -364,7 +361,7 @@ static void setup_signal_handlers(void) {
 }
 
 int main() {
-    INFOF("[main] starting pid=%d", getpid());
+    INFOF("[%s] starting pid=%d", main_context.name, getpid());
 
     setup_signal_handlers();
     setup_listener();
