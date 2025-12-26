@@ -9,8 +9,8 @@ service_name := com.github.nirs.vmnet-broker
 
 all: vmnet-broker vmnet-client
 
-vmnet-broker: broker.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+vmnet-broker: broker.c network.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 vmnet-client: client.c

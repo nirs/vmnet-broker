@@ -1,15 +1,11 @@
-#include <arpa/inet.h>
 #include <dispatch/dispatch.h>
 #include <errno.h>
-#include <limits.h>
-#include <objc/objc-api.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <time.h>
 #include <vmnet/vmnet.h>
 #include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
+#include "network.h"
 #include "log.h"
 
 struct peer {
@@ -48,9 +44,11 @@ static dispatch_source_t idle_timer;
 
 static void free_network(const struct peer *peer, struct network *network) {
     if (network) {
-        INFOF("[peer %d] deleting network", peer->pid);
-
         if (network->ref) {
+            struct network_info info;
+            network_info(network->ref, &info);
+            INFOF("[peer %d] deleted network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+                peer->pid, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
             CFRelease(network->ref);
         }
         if (network->serialization) {
@@ -79,8 +77,6 @@ static vmnet_network_configuration_ref network_config(const struct peer *peer) {
 static struct network *create_network(const struct peer *peer) {
     vmnet_return_t status;
 
-    INFOF("[peer %d] creating network", peer->pid);
-
     struct network *network = calloc(1, sizeof(*network));
     if (network == NULL) {
         WARNF("[peer %d] failed to allocate network: %s", peer->pid, strerror(errno));
@@ -97,6 +93,11 @@ static struct network *create_network(const struct peer *peer) {
         WARNF("[peer %d] failed to create network ref: (%d) %s", peer->pid, status, vmnet_strerror(status));
         goto error;
     }
+
+    struct network_info info;
+    network_info(network->ref, &info);
+    INFOF("[peer %d] created network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        peer->pid, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
 
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
     if (network->serialization == NULL) {
