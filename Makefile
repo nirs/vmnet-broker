@@ -13,8 +13,8 @@ vmnet-broker: broker.c network.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-vmnet-client: client.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+vmnet-client: client.c network.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 install:

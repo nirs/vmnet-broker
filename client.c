@@ -7,6 +7,7 @@
 #include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
+#include "network.h"
 #include "log.h"
 
 bool verbose = true;
@@ -88,7 +89,10 @@ static vmnet_network_ref request_network_from_broker(void) {
         goto out;
     }
 
-    INFO("network received");
+    struct network_info info;
+    network_info(network, &info);
+    INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
 
 out:
     xpc_release(reply);
