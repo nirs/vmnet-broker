@@ -154,7 +154,7 @@ static void send_error(const struct context *ctx, xpc_object_t event, int code, 
 }
 
 static void send_network(const struct context *ctx, xpc_object_t event, struct network *network) {
-    INFOF("[%s] send reply", ctx->name);
+    DEBUGF("[%s] send network to peer", ctx->name);
 
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
