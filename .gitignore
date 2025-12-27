@@ -4,6 +4,9 @@
 /test
 /vmnet-broker
 
+# Swift Build directory.
+/.build/
+
 # Test vm
 /vm/
 
