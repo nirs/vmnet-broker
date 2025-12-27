@@ -171,6 +171,34 @@ static void send_network(const struct context *ctx, xpc_object_t event, struct n
     xpc_release(reply);
 }
 
+// TODO: Accept network name.
+static struct network *get_network(const struct context *ctx) {
+    if (shared_network == NULL) {
+        shared_network = create_network(ctx);
+    }
+    return shared_network;
+}
+
+static void handle_request(const struct context *ctx, xpc_object_t event) {
+    const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
+    if (command == NULL) {
+        send_error(ctx, event, ERROR_INVALID_REQUEST, "no command");
+        return;
+    }
+    if (strcmp(command, COMMAND_GET) != 0) {
+        send_error(ctx, event, ERROR_INVALID_REQUEST, "unknown command");
+        return;
+    }
+
+    struct network *network = get_network(ctx);
+    if (network == NULL) {
+        send_error(ctx, event, ERROR_CREATE_NETWORK, "failed to create network");
+        return;
+    }
+
+    send_network(ctx, event, network);
+}
+
 // Avoid orphaned network if broker is stopped before clients.
 static void shutdown_shared_network(const struct context *ctx) {
     if (shared_network) {
@@ -230,27 +258,6 @@ static void handle_error(const struct context *ctx, xpc_object_t event) {
         const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
         WARNF("[%s] unexpected error: %s", ctx->name, desc);
     }
-}
-
-static void handle_request(const struct context *ctx, xpc_object_t event) {
-    const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
-    if (command == NULL) {
-        send_error(ctx, event, ERROR_INVALID_REQUEST, "no command");
-        return;
-    }
-    if (strcmp(command, COMMAND_GET) != 0) {
-        send_error(ctx, event, ERROR_INVALID_REQUEST, "unknown command");
-        return;
-    }
-
-    if (shared_network == NULL) {
-        shared_network = create_network(ctx);
-        if (shared_network == NULL) {
-            send_error(ctx, event, ERROR_CREATE_NETWORK, "failed to create network");
-            return;
-        }
-    }
-    send_network(ctx, event, shared_network);
 }
 
 static void handle_connection(xpc_connection_t connection) {
