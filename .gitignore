@@ -1,0 +1,11 @@
+# Products
+/*.a
+/*.o
+/test
+/vmnet-broker
+
+# Test vm
+/vm/
+
+# macOS metadata
+.DS_Store
