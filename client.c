@@ -97,39 +97,6 @@ out:
     return network;
 }
 
-static void write_vmnet_info(xpc_object_t param)
-{
-    __block int count = 0;
-
-#define print_item(fmt, key, value) \
-    do { \
-        if (count++ > 0) \
-            printf(","); \
-        printf(fmt, key, value); \
-    } while (0)
-
-    printf("{");
-
-    xpc_dictionary_apply(param, ^bool(const char *key, xpc_object_t value) {
-        xpc_type_t t = xpc_get_type(value);
-        if (t == XPC_TYPE_UINT64) {
-            print_item("\"%s\":%llu", key, xpc_uint64_get_value(value));
-        } else if (t == XPC_TYPE_INT64) {
-            print_item("\"%s\":%lld", key, xpc_int64_get_value(value));
-        } else if (t == XPC_TYPE_STRING) {
-            print_item("\"%s\":\"%s\"", key, xpc_string_get_string_ptr(value));
-        } else if (t == XPC_TYPE_UUID) {
-            char uuid_str[36 + 1];
-            uuid_unparse(xpc_uuid_get_bytes(value), uuid_str);
-            print_item("\"%s\":\"%s\"", key, uuid_str);
-        }
-        return true;
-    });
-
-    printf("}\n");
-    fflush(stdout);
-}
-
 static void start_interface_from_network(vmnet_network_ref network) {
     INFO("starting vmnet interface from network");
 
@@ -145,7 +112,22 @@ static void start_interface_from_network(vmnet_network_ref network) {
             exit(EXIT_FAILURE);
         }
 
-        write_vmnet_info(param);
+        xpc_dictionary_apply(param, ^bool(const char *key, xpc_object_t value) {
+            xpc_type_t t = xpc_get_type(value);
+            if (t == XPC_TYPE_UINT64) {
+                DEBUGF("%s: %llu", key, xpc_uint64_get_value(value));
+            } else if (t == XPC_TYPE_INT64) {
+                DEBUGF("%s: %lld", key, xpc_int64_get_value(value));
+            } else if (t == XPC_TYPE_STRING) {
+                DEBUGF("%s: '%s'", key, xpc_string_get_string_ptr(value));
+            } else if (t == XPC_TYPE_UUID) {
+                char uuid_str[36 + 1];
+                uuid_unparse(xpc_uuid_get_bytes(value), uuid_str);
+                DEBUGF("%s: '%s'", key, uuid_str);
+            }
+            return true;
+        });
+
         dispatch_semaphore_signal(completed);
     });
 
