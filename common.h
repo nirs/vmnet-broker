@@ -14,7 +14,6 @@ struct network_info {
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void network_info(vmnet_network_ref network, struct network_info *info);
-void xpc_clear(xpc_object_t *p);
 const char *vmnet_strerror(vmnet_return_t status);
 
 #endif // COMMON_H

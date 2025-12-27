@@ -1,5 +1,4 @@
 #include <arpa/inet.h>
-#include <assert.h>
 #include "common.h"
 
 void network_info(vmnet_network_ref network, struct network_info *info) {
@@ -38,13 +37,5 @@ const char *vmnet_strerror(vmnet_return_t status)
         return "VMNET_TOO_MANY_PACKETS";
     default:
         return "(unknown status)";
-    }
-}
-
-void xpc_clear(xpc_object_t *p) {
-    assert(p);
-    if (*p) {
-        xpc_release(*p);
-        *p = NULL;
     }
 }
