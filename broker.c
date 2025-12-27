@@ -313,9 +313,9 @@ static void setup_listener(void) {
             // Use the same queue for all peers. This ensures that we don't need
             // any locks when modfying internal state, and all events are
             // serialized.
-            xpc_connection_set_target_queue(event, dispatch_get_main_queue());
-
-            handle_connection(event);
+            xpc_connection_t connection = (xpc_connection_t)event;
+            xpc_connection_set_target_queue(connection, dispatch_get_main_queue());
+            handle_connection(connection);
         }
     });
 
