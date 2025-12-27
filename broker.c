@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "vmnet-broker.h"
-#include "network.h"
+#include "common.h"
 #include "log.h"
 
 struct context {

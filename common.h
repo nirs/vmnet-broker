@@ -1,8 +1,8 @@
-#ifndef VMNET_NETWORK_H
-#define VMNET_NETWORK_H
+#ifndef COMMON_H
+#define COMMON_H
 
-#include <arpa/inet.h>
 #include <vmnet/vmnet.h>
+#include <xpc/xpc.h>
 
 struct network_info {
     char subnet[INET_ADDRSTRLEN];
@@ -11,6 +11,10 @@ struct network_info {
     uint8_t prefix_len;
 };
 
-void network_info(vmnet_network_ref network, struct network_info *info);
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
-#endif
+void network_info(vmnet_network_ref network, struct network_info *info);
+void xpc_clear(xpc_object_t *p);
+const char *vmnet_strerror(vmnet_return_t status);
+
+#endif // COMMON_H
