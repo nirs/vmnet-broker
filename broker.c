@@ -235,61 +235,61 @@ static void shutdown_later(const struct context *ctx) {
     dispatch_resume(idle_timer);
 }
 
-static void handle_error(const struct context *ctx, xpc_object_t event) {
-    if (event == XPC_ERROR_CONNECTION_INVALID) {
-        // Client connection is dead - invalidate resources owned by client.
-        connected_peers--;
-        INFOF("[%s] disconnected (connected peers %d)", ctx->name, connected_peers);
+static void add_peer(const struct context *ctx) {
+    connected_peers++;
 
-        // If this is the last peer, end the transaction so launchd will be able
-        // stop the broker quickly if needed.
-        if (connected_peers == 0) {
-            DEBUGF("[%s] ending transaction - broker can be stopped", ctx->name);
-            xpc_transaction_end();
+    INFOF("[%s] connected (connected peers %d)", ctx->name, connected_peers);
 
-            // Shut down if we are idle for long time.
-            shutdown_later(ctx);
+    if (connected_peers == 1) {
+        // Create a transaction so launchd will know that we are active and will
+        // not try to stop the service to free resources.
+        DEBUGF("[%s] starting transaction to prevent termination while peers are connected", ctx->name);
+        xpc_transaction_begin();
+
+        if (idle_timer) {
+            DEBUGF("[%s] canceling idle shutdown", ctx->name);
+            dispatch_source_cancel(idle_timer);
+            idle_timer = NULL;
         }
-    } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-        // Temporary interruption, may recover.
-        INFOF("[%s] temporary interruption", ctx->name);
-    } else {
-        // Unexpected error.
-        const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-        WARNF("[%s] unexpected error: %s", ctx->name, desc);
+    }
+}
+
+static void remove_peer(const struct context *ctx) {
+    connected_peers--;
+
+    INFOF("[%s] disconnected (connected peers %d)", ctx->name, connected_peers);
+
+    if (connected_peers == 0) {
+        // This is the last peer - end the transaction so launchd will be able
+        // stop the broker quickly if needed.
+        DEBUGF("[%s] ending transaction - broker can be stopped", ctx->name);
+        xpc_transaction_end();
+
+        // Shut down if we are idle for long time.
+        shutdown_later(ctx);
     }
 }
 
 static void handle_connection(xpc_connection_t connection) {
     // TODO: authorize the peer using the audit token
 
-    // Until we manage list of active peers, this is a good place to keep the
-    // peer details. It is shared with all requests on this connection via the
-    // handler block. We need to capture the pid now since it is not available
-    // when the connection invalidates.
     struct context ctx;
     init_context(&ctx, connection);
 
-    connected_peers++;
-    INFOF("[%s] connected (connected peers %d)", ctx.name, connected_peers);
-
-    if (connected_peers == 1) {
-        // Create a transaction so launchd will know that we are active and will
-        // not try to stop the service to free resources.
-        DEBUGF("[%s] starting transaction to prevent termination while peers are connected", ctx.name);
-        xpc_transaction_begin();
-
-        if (idle_timer) {
-            DEBUGF("[%s] canceling idle shutdown", ctx.name);
-            dispatch_source_cancel(idle_timer);
-            idle_timer = NULL;
-        }
-    }
+    add_peer(&ctx);
 
     xpc_connection_set_event_handler(ctx.connection, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
-            handle_error(&ctx, event);
+            if (event == XPC_ERROR_CONNECTION_INVALID) {
+                // Client connection is dead.
+                remove_peer(&ctx);
+            } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
+                INFOF("[%s] temporary interruption", ctx.name);
+            } else {
+                const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
+                WARNF("[%s] unexpected error: %s", ctx.name, desc);
+            }
         } else if (type == XPC_TYPE_DICTIONARY) {
             handle_request(&ctx, event);
         }
