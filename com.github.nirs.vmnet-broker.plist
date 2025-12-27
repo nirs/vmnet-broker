@@ -16,8 +16,6 @@
     <key>ExitTimeout</key>
     <integer>60</integer>
     <key>StandardErrorPath</key>
-    <string>/Library/Logs/vmnet-broker/stderr.log</string>
-    <key>StandardOutPath</key>
-    <string>/Library/Logs/vmnet-broker/stdout.log</string>
+    <string>/Library/Logs/vmnet-broker/vmnet-broker.log</string>
 </dict>
 </plist>
