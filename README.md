@@ -66,7 +66,22 @@ defining the networks. You can add more networks as needed.
 }
 ```
 
-## Writing a client
+## Using the broker in your application
 
-See `client.c` to learn how to access the broker using xpc and request a
-network.
+To access the broker you can use the libvmentbroker static library:
+
+```C
+struct vmnet_broker_error error;
+
+xpc_object_t serialization = vmnet_broker_start_session("default", &error);
+
+if (serialization == NULL) {
+    fprintf(stderr, "failed to start broker session: (%d) %s\n", error.code, error.message);
+    exit(EXIT_FAILURE);
+}
+```
+
+The library can be baked directly into Go (CGo), Swift (Bridging Header),
+Objective-C, or Rust (FFI) projects
+
+See `test.c` for complete example.

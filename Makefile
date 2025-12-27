@@ -7,15 +7,19 @@ launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
 
-all: vmnet-broker vmnet-client
+all: vmnet-broker test
 
-vmnet-broker: broker.c common.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+vmnet-broker: broker.c common.c common.h vmnet-broker.h
+	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-vmnet-client: client.c common.c
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+test: test.c common.c common.h libvmnetbroker.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnetbroker test.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
+
+libvmnetbroker.a: client.c vmnet-broker.h
+	$(CC) $(CFLAGS) -c client.c
+	$(AR) rcs $@ client.o
 
 install:
 	sudo mkdir -p "$(install_dir)"
@@ -40,4 +44,4 @@ print:
 	sudo launchctl print system/$(service_name)
 
 clean:
-	rm -f vmnet-broker vmnet-client
+	rm -f vmnet-broker test *.o *.a
