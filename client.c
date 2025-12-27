@@ -138,7 +138,8 @@ static void start_interface_from_network(vmnet_network_ref network) {
     xpc_object_t desc = xpc_dictionary_create_empty();
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
 
-    interface = vmnet_interface_start_with_network(network, desc, vmnet_queue, ^(vmnet_return_t status, xpc_object_t param){
+    interface = vmnet_interface_start_with_network(
+        network, desc, vmnet_queue, ^(vmnet_return_t status, xpc_object_t param){
         if (status != VMNET_SUCCESS) {
             ERRORF("failed to start vment interface with network: (%d) %s", status, vmnet_strerror(status));
             exit(EXIT_FAILURE);
@@ -166,7 +167,7 @@ static void stop_interface(void)
 
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
     vmnet_return_t status = vmnet_stop_interface(
-            interface, vmnet_queue, ^(vmnet_return_t status) {
+        interface, vmnet_queue, ^(vmnet_return_t status){
         if (status != VMNET_SUCCESS) {
             ERRORF("[main] failed to stop vmnet interface: (%d) %s", status, vmnet_strerror(status));
             exit(EXIT_FAILURE);
