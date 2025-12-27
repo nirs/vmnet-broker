@@ -3,8 +3,6 @@
 #include <sys/event.h>
 #include <time.h>
 #include <uuid/uuid.h>
-#include <vmnet/vmnet.h>
-#include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
 #include "network.h"

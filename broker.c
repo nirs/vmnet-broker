@@ -1,8 +1,6 @@
 #include <dispatch/dispatch.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <vmnet/vmnet.h>
-#include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
 #include "network.h"

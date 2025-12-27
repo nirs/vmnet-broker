@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <vmnet/vmnet.h>
+#include <xpc/xpc.h>
 
 // The broker Mach service name.
 #define MACH_SERVICE_NAME "com.github.nirs.vmnet-broker"
