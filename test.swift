@@ -48,9 +48,15 @@ RunLoop.main.run(until: Date.distantFuture)
 // MARK: - Virtual Machine Delegate
 
 class Delegate: NSObject, VZVirtualMachineDelegate {
+    // Normal shutdown within the guest (e.g poweroff)
     func guestDidStop(_ virtualMachine: VZVirtualMachine) {
         print("The guest shut down - exiting")
         exit(EXIT_SUCCESS)
+    }
+    // Not clear when this happens, but good to know if it did.
+    func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: any Error) {
+        print("The guest stopped with error: \(error) - exiting")
+        exit(EXIT_FAILURE)
     }
 }
 
