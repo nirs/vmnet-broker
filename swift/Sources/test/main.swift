@@ -9,6 +9,9 @@ import vmnet_broker
 
 private let logger = Logger(label: "main")
 
+// Prevent garbage collections of dispatch sources.
+private var dispatchSignalSources: [DispatchSourceSignal] = []
+
 // MARK: - Main
 
 setupLogging()
@@ -43,6 +46,8 @@ let virtualMachine = VZVirtualMachine(configuration: configuration)
 let delegate = Delegate()
 virtualMachine.delegate = delegate
 
+setupShutdownSignals(virtualMachine)
+
 virtualMachine.start { (result) in
     if case .failure(let error) = result {
         logger.error("Failed to start the virtual machine. \(error)")
@@ -74,6 +79,21 @@ func setupLogging() {
         var handler = StreamLogHandler.standardError(label: label)
         handler.logLevel = .debug
         return handler
+    }
+}
+
+@MainActor
+func setupShutdownSignals(_ vm: VZVirtualMachine) {
+    for sig in [SIGINT, SIGTERM] {
+        signal(sig, SIG_IGN)
+        let signalSource = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+        signalSource.setEventHandler {
+            logger.info("Received signal \(sig) - exiting")
+            // TODO: Stop the vm gracefully.
+            exit(EXIT_FAILURE)
+        }
+        signalSource.resume()
+        dispatchSignalSources.append(signalSource)
     }
 }
 
