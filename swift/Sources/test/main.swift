@@ -83,14 +83,40 @@ func setupLogging() {
 }
 
 @MainActor
+func shutdownGracefully(_ vm: VZVirtualMachine) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+        logger.warning("Timeout shutting down - hard stop")
+        vm.stop { _ in
+            logger.info("Hard stop failed - existing")
+            exit(EXIT_FAILURE)
+        }
+    }
+    do {
+        logger.info("Shutting down guest gracefully")
+        try vm.requestStop()
+        // guestDidStop will be called.
+        logger.debug("Waitng until guest shut down")
+    } catch {
+        logger.warning("Request failed: \(error.localizedDescription) - hard stop")
+        vm.stop { stopError in
+            if let stopError = stopError {
+                logger.warning("Hard stop failed: \(stopError): existing")
+                exit(EXIT_FAILURE)
+            }
+            logger.info("The guest was stoped -  existing")
+            exit(EXIT_SUCCESS)
+        }
+    }
+}
+
+@MainActor
 func setupShutdownSignals(_ vm: VZVirtualMachine) {
     for sig in [SIGINT, SIGTERM] {
         signal(sig, SIG_IGN)
         let signalSource = DispatchSource.makeSignalSource(signal: sig, queue: .main)
         signalSource.setEventHandler {
             logger.info("Received signal \(sig) - exiting")
-            // TODO: Stop the vm gracefully.
-            exit(EXIT_FAILURE)
+            shutdownGracefully(vm)
         }
         signalSource.resume()
         dispatchSignalSources.append(signalSource)
