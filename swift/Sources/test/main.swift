@@ -1,13 +1,20 @@
 import Foundation
+import Logging
 import Virtualization
 import XPC
 import vmnet
 import vmnet_broker
 
+// MARK: Global state
+
+private let logger = Logger(label: "main")
+
 // MARK: - Main
 
+setupLogging()
+
 guard CommandLine.arguments.count == 2 else {
-    print("Usage: \(CommandLine.arguments[0]) <config.json>")
+    logger.info("Usage: \(CommandLine.arguments[0]) <config.json>")
     exit(EX_USAGE)
 }
 
@@ -27,7 +34,7 @@ configuration.storageDevices = [
 do {
     try configuration.validate()
 } catch {
-    print("Failed to validate the virtual machine configuration. \(error)")
+    logger.error("Failed to validate the virtual machine configuration. \(error)")
     exit(EXIT_FAILURE)
 }
 
@@ -38,7 +45,7 @@ virtualMachine.delegate = delegate
 
 virtualMachine.start { (result) in
     if case .failure(let error) = result {
-        print("Failed to start the virtual machine. \(error)")
+        logger.error("Failed to start the virtual machine. \(error)")
         exit(EXIT_FAILURE)
     }
 }
@@ -50,17 +57,25 @@ RunLoop.main.run(until: Date.distantFuture)
 class Delegate: NSObject, VZVirtualMachineDelegate {
     // Normal shutdown within the guest (e.g poweroff)
     func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        print("The guest shut down - exiting")
+        logger.info("The guest shut down - exiting")
         exit(EXIT_SUCCESS)
     }
     // Not clear when this happens, but good to know if it did.
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: any Error) {
-        print("The guest stopped with error: \(error) - exiting")
+        logger.warning("The guest stopped with error: \(error) - exiting")
         exit(EXIT_FAILURE)
     }
 }
 
 // MARK: - Helper Functions
+
+func setupLogging() {
+    LoggingSystem.bootstrap { label in
+        var handler = StreamLogHandler.standardError(label: label)
+        handler.logLevel = .debug
+        return handler
+    }
+}
 
 func createBootLoader(_ cfg: BootloaderConfig) -> VZBootLoader {
     let kernelURL = URL(fileURLWithPath: cfg.kernel, isDirectory: false)

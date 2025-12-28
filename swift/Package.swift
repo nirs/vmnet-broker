@@ -9,9 +9,15 @@ let packageRoot = Context.packageDirectory
 let package = Package(
     name: "swift",
     platforms: [.macOS(.v26)],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
+    ],
     targets: [
         .executableTarget(
             name: "test",
+            dependencies: [
+                .product(name: "Logging", package: "swift-log")
+            ],
             swiftSettings: [
                 .unsafeFlags(["-I", "\(packageRoot)/.."])
             ],

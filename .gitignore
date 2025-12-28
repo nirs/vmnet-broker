@@ -4,7 +4,10 @@
 /test-c
 /test-swift
 /vmnet-broker
+
+# Swift
 /swift/.build/
+/swift/Package.resolved
 
 # Test vm
 /vm/
