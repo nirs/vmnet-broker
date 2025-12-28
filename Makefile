@@ -1,5 +1,4 @@
 CC = clang
-SWIFTC = swiftc
 CFLAGS = -Wall -O2
 LDFLAGS = -framework CoreFoundation -framework vmnet
 
@@ -8,7 +7,7 @@ launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
 
-.PHONY: all clean compile_commands.json
+.PHONY: all clean test-swift
 
 all: vmnet-broker test-c test-swift
 
@@ -16,22 +15,18 @@ vmnet-broker: broker.c common.c common.h vmnet-broker.h
 	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-c: test.c common.c common.h libvmnetbroker.a
-	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnetbroker test.c common.c -o $@
+test-c: test.c common.c common.h libvmnet-broker.a
+	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnet-broker test.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-swift: test.swift
-	$(SWIFTC) $^ -target arm64-apple-macosx26.0 -I. -L. -lvmnetbroker -framework vmnet -o $@
+test-swift:
+	swift build --package-path swift -c release -Xswiftc -g
+	ln -fs swift/.build/release/test $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-libvmnetbroker.a: client.c vmnet-broker.h
+libvmnet-broker.a: client.c vmnet-broker.h
 	$(CC) $(CFLAGS) -c client.c
 	$(AR) rcs $@ client.o
-
-compile_commands.json:
-	$(MAKE) clean
-	# brew install bear
-	bear -- $(MAKE) all
 
 install:
 	sudo mkdir -p "$(install_dir)"
@@ -56,4 +51,4 @@ print:
 	sudo launchctl print system/$(service_name)
 
 clean:
-	rm -f vmnet-broker test-c test-swift compile_commands.json *.o *.a
+	rm -f vmnet-broker test-c test-swift *.o *.a

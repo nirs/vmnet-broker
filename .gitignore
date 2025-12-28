@@ -1,11 +1,10 @@
 # Products
 /*.a
 /*.o
-/test
+/test-c
+/test-swift
 /vmnet-broker
-
-# Swift Build directory.
-/.build/
+/swift/.build/
 
 # Test vm
 /vm/
