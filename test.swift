@@ -14,8 +14,8 @@ guard CommandLine.arguments.count == 2 else {
 let vmConfig = loadVMConfig(CommandLine.arguments[1])
 
 let configuration = VZVirtualMachineConfiguration()
-configuration.cpuCount = 2
-configuration.memorySize = 2 * 1024 * 1024 * 1024  // 2 GiB
+configuration.cpuCount = 1
+configuration.memorySize = 1 * 1024 * 1024 * 1024
 configuration.serialPorts = [createConsoleConfiguration()]
 configuration.bootLoader = createBootLoader(vmConfig.bootloader)
 configuration.networkDevices = [createVmnetNetworkDeviceConfiguration(vmConfig.mac)]
