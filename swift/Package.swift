@@ -18,7 +18,7 @@ let package = Package(
             linkerSettings: [
                 .linkedLibrary("vmnet-broker"),
                 // for finding libvmnet-broker.a
-                .unsafeFlags(["-L.."]),
+                .unsafeFlags(["-L\(packageRoot)/.."]),
                 .linkedFramework("Virtualization"),
                 .linkedFramework("vmnet"),
             ]
