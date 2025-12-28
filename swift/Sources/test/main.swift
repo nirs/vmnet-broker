@@ -9,6 +9,10 @@ import vmnet_broker
 
 private let logger = Logger(label: "main")
 
+// For restoring terminal to normal mode on exit. Must be global so we can
+// access in atexit.
+var originalTermios = termios()
+
 // Prevent garbage collections of dispatch sources.
 private var dispatchSignalSources: [DispatchSourceSignal] = []
 
@@ -134,25 +138,26 @@ func createBootLoader(_ cfg: BootloaderConfig) -> VZBootLoader {
     return bootLoader
 }
 
+@MainActor
 func createConsoleConfiguration() -> VZSerialPortConfiguration {
     let consoleConfiguration = VZVirtioConsoleDeviceSerialPortConfiguration()
 
-    let inputFileHandle = FileHandle.standardInput
-    let outputFileHandle = FileHandle.standardOutput
+    // Save terminal state and restore it at exit.
+    tcgetattr(STDIN_FILENO, &originalTermios)
+    atexit {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios)
+    }
 
     // Put stdin into raw mode, disabling local echo, input canonicalization,
     // and CR-NL mapping.
-    var attributes = termios()
-    tcgetattr(inputFileHandle.fileDescriptor, &attributes)
-    attributes.c_iflag &= ~tcflag_t(ICRNL)
-    attributes.c_lflag &= ~tcflag_t(ICANON | ECHO)
-    tcsetattr(inputFileHandle.fileDescriptor, TCSANOW, &attributes)
+    var rawAttributes = originalTermios
+    rawAttributes.c_iflag &= ~tcflag_t(ICRNL)
+    rawAttributes.c_lflag &= ~tcflag_t(ICANON | ECHO)
+    tcsetattr(STDIN_FILENO, TCSANOW, &rawAttributes)
 
-    let stdioAttachment = VZFileHandleSerialPortAttachment(
-        fileHandleForReading: inputFileHandle,
-        fileHandleForWriting: outputFileHandle)
-
-    consoleConfiguration.attachment = stdioAttachment
+    consoleConfiguration.attachment = VZFileHandleSerialPortAttachment(
+        fileHandleForReading: FileHandle.standardInput,
+        fileHandleForWriting: FileHandle.standardOutput)
 
     return consoleConfiguration
 }
