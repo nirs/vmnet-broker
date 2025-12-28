@@ -176,10 +176,10 @@ func createVmnetNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDevi
         fatalError("Invalid MAC address: \(mac)")
     }
 
-    var error = vmnet_broker_error()
-    guard let serialization = vmnet_broker_start_session("default", &error) else {
-        let msg = withUnsafePointer(to: &error.message.0) { String(cString: $0) }
-        fatalError("Failed to start vmnet-broker session: \(msg) (code: \(error.code))")
+    var broker_status = VMNET_BROKER_SUCCESS
+    guard let serialization = vmnet_broker_start_session("default", &broker_status) else {
+        let msg = vmnet_broker_strerror(broker_status)
+        fatalError("Failed to start vmnet-broker session: \(msg)")
     }
     // Swift ARC naturally releases CoreFoundation types.
 

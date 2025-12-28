@@ -121,9 +121,7 @@ error:
     return NULL;
 }
 
-static void send_error(const struct context *ctx, xpc_object_t event, int code, const char *message) {
-    WARNF("[%s] send error: (%d) %s", ctx->name, code, message);
-
+static void send_error(const struct context *ctx, xpc_object_t event, int code) {
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
         // Event does not include the return address.
@@ -133,13 +131,7 @@ static void send_error(const struct context *ctx, xpc_object_t event, int code, 
         return;
     }
 
-    xpc_object_t error = xpc_dictionary_create_empty();
-    xpc_dictionary_set_int64(error, ERROR_CODE, code);
-    xpc_dictionary_set_string(error, ERROR_MESSAGE, message);
-
-    xpc_dictionary_set_value(reply, REPLY_ERROR, error);
-    xpc_release(error);
-    error = NULL;
+    xpc_dictionary_set_int64(reply, REPLY_ERROR, code);
 
     if (verbose) {
         char *desc = xpc_copy_description(reply);
@@ -181,17 +173,19 @@ static struct network *get_network(const struct context *ctx) {
 static void handle_request(const struct context *ctx, xpc_object_t event) {
     const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
     if (command == NULL) {
-        send_error(ctx, event, ERROR_INVALID_REQUEST, "no command");
+        WARNF("[%s] invalid request: missing command key", ctx->name);
+        send_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
         return;
     }
     if (strcmp(command, COMMAND_GET) != 0) {
-        send_error(ctx, event, ERROR_INVALID_REQUEST, "unknown command");
+        WARNF("[%s] invalid request: unknown command '%s'", ctx->name, command);
+        send_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
         return;
     }
 
     struct network *network = get_network(ctx);
     if (network == NULL) {
-        send_error(ctx, event, ERROR_CREATE_NETWORK, "failed to create network");
+        send_error(ctx, event, VMNET_BROKER_CREATE_FAILURE);
         return;
     }
 

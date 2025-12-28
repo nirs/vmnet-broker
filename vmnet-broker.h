@@ -1,7 +1,8 @@
 #ifndef VMNET_BROKER_H
 #define VMNET_BROKER_H
 
-#include <vmnet/vmnet.h>
+#include <stdint.h>
+#include <xpc/xpc.h>
 
 // The broker Mach service name.
 #define MACH_SERVICE_NAME "com.github.nirs.vmnet-broker"
@@ -17,37 +18,34 @@
 #define REPLY_NETWORK "network"
 #define REPLY_ERROR "error"
 
-// Error keys
-#define ERROR_MESSAGE "message"
-#define ERROR_CODE "code"
+// Status codes
 
-// Error codes
+// Session started.
+#define VMNET_BROKER_SUCCESS 0
 
 // Failed to send XPC message to broker.
-#define ERROR_XPC_REQUEST 1
+#define VMNET_BROKER_XPC_FAILURE 1
 
-// Broker return invalid reply.
-#define ERROR_INVALID_REPLY 2
+// Broker returned invalid reply.
+#define VMNET_BROKER_INVALID_REPLY 2
 
 // Broker rejected the request becasue the user is not allowed to get the network.
-#define ERROR_NOT_ALLOWED 3
+#define VMNET_BROKER_NOT_ALLOWED 3
 
 // Broker rejected the request becasue the request was invalid.
-#define ERROR_INVALID_REQUEST 4
+#define VMNET_BROKER_INVALID_REQUEST 4
 
 // Broker did not find the requested network in the broker configuration.
-#define ERROR_NOT_FOUND 5
+#define VMNET_BROKER_NOT_FOUND 5
 
 // Broker failed to create the requested network.
-#define ERROR_CREATE_NETWORK 6
+#define VMNET_BROKER_CREATE_FAILURE 6
 
-// Broker error.
-#define ERROR_MESSAGE_SIZE 160
+// Internal or unknown error.
+#define VMNET_BROKER_INTERNAL_ERROR 7
 
-struct vmnet_broker_error {
-    char message[ERROR_MESSAGE_SIZE];
-    int code;
-};
+// Match vment framework style.
+typedef int32_t vmnet_broker_return_t;
 
 /*!
  * @function vmnet_broker_start_session
@@ -63,15 +61,29 @@ struct vmnet_broker_error {
  * @param network_name
  * The network name.
  *
- * @param error
- * Optional output parameter, filled if the function return NULL.
+ * @param status
+ * Optional output parameter, returns status.
  *
  * @result
- * Retained network serialization, or NULL on error, in which case error is
- * filled with information about the error. Use `CFRelease()` to release the
- * serialization.
- *
+ * Retained network serialization, NULL otherwise. `status` will contain the
+ * error code. Use `xpc_release()` to release the serialization.
  */
-xpc_object_t vmnet_broker_start_session(const char *network_name, struct vmnet_broker_error *error);
+xpc_object_t _Nullable vmnet_broker_start_session(
+    const char * _Nonnull network_name,
+    vmnet_broker_return_t * _Nullable status);
+
+/*!
+ * @function vmnet_broker_strerror
+ *
+ * @abstract
+ * Return desrption of the status returned from `vment_broker_start_session`.
+ *
+ * @param status
+ * Status returned by `vmnet_broker_start_session`
+ *
+ * @result
+ * Description of the status.
+ */
+const char * _Nonnull vmnet_broker_strerror(vmnet_broker_return_t status);
 
 #endif // VMNET_BROKER_H

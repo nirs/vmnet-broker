@@ -3,6 +3,7 @@
 #include <sys/event.h>
 #include <time.h>
 #include <uuid/uuid.h>
+#include <xpc/xpc.h>
 
 #include "vmnet-broker.h"
 #include "common.h"
@@ -156,16 +157,16 @@ static void wait_for_termination(void)
 int main(int argc, char *argv[]) {
     setup_kq();
 
-    struct vmnet_broker_error error;
-    xpc_object_t serialization = vmnet_broker_start_session("default", &error);
+    vmnet_broker_return_t broker_status;
+    xpc_object_t serialization = vmnet_broker_start_session("default", &broker_status);
     if (serialization == NULL) {
-        ERRORF("failed to start broker session: (%d) %s", error.code, error.message);
+        ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);
     }
 
     vmnet_return_t status;
     vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &status);
-    CFRelease(serialization);
+    xpc_release(serialization);
 
     if (network == NULL) {
         ERRORF("failed to create network from serialization: (%d) %s", status, vmnet_strerror(status));
