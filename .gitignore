@@ -9,6 +9,9 @@
 /swift/.build/
 /swift/Package.resolved
 
+# Go
+/go/test
+
 # Test vm
 /vm/
 
