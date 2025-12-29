@@ -20,7 +20,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Faled to get network serializaion from broker: %v", err)
 	}
-	log.Printf("✅ Receive serialization from broker %p", serialization.Raw())
 
 	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())
 	if err != nil {
@@ -31,7 +30,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get IPv4 subnet: %v", err)
 	}
-	log.Printf("✅ Create nework from serialization subnet %s", ipv4)
+
+	log.Printf("✅ Using nework %s", ipv4)
 
 	bootLoader, err := vz.NewLinuxBootLoader(
 		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
@@ -41,7 +41,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create bootloader: %s", err)
 	}
-	log.Println("bootLoader:", bootLoader)
 
 	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
 	if err != nil {
@@ -130,8 +129,6 @@ func main() {
 		log.Fatal("failed to validate config", err)
 	}
 
-	log.Printf("✅ Validated virtual machine configuration")
-
 	vm, err := vz.NewVirtualMachine(config)
 	if err != nil {
 		log.Fatalf("Virtual machine creation failed: %s", err)
@@ -156,17 +153,17 @@ func main() {
 			if err != nil {
 				log.Printf("failed to stop gracefully: %v - hard stop", err)
 				if err := vm.Stop(); err != nil {
-					log.Printf("failed to stop: %v - existing", err)
+					log.Printf("failed to stop: %v - exiting", err)
 					return
 				}
 			}
 			log.Printf("Requested stop: %v", result)
 		case newState := <-vm.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
-				log.Println("The guest is running")
+				log.Println("✅ The guest is running")
 			}
 			if newState == vz.VirtualMachineStateStopped {
-				log.Println("The guest stopped - existing")
+				log.Println("The guest stopped - exiting")
 				return
 			}
 		case err := <-errCh:
