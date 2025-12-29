@@ -7,9 +7,9 @@ launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
 
-.PHONY: all clean test-swift
+.PHONY: all clean test-swift test-go
 
-all: vmnet-broker test-c test-swift
+all: vmnet-broker test-c test-swift test-go
 
 vmnet-broker: broker.c common.c common.h vmnet-broker.h
 	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
@@ -22,6 +22,10 @@ test-c: test.c common.c common.h libvmnet-broker.a
 test-swift:
 	swift build --package-path swift -c release -Xswiftc -g
 	ln -fs swift/.build/release/test $@
+	codesign -f -v --entitlements entitlements.plist -s - $@
+
+test-go:
+	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 libvmnet-broker.a: client.c vmnet-broker.h
@@ -51,4 +55,4 @@ print:
 	sudo launchctl print system/$(service_name)
 
 clean:
-	rm -f vmnet-broker test-c test-swift *.o *.a
+	rm -f vmnet-broker test-c test-swift test-go *.o *.a

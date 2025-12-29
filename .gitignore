@@ -2,6 +2,7 @@
 /*.a
 /*.o
 /test-c
+/test-go
 /test-swift
 /vmnet-broker
 
