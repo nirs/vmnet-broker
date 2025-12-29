@@ -149,8 +149,8 @@ func main() {
 func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 	for {
 		select {
-		case <-signalCh:
-			log.Println("recieved signal - shutting down gracefuly")
+		case sig := <-signalCh:
+			log.Printf("recieved signal %v - shutting down gracefuly", sig)
 			result, err := vm.RequestStop()
 			if err != nil {
 				log.Printf("failed to stop gracefully: %v - hard stop", err)
