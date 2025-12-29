@@ -33,11 +33,10 @@ func StartSession(networkName string) (*Serialization, error) {
 
 	serialization := &Serialization{ptr: obj}
 
-	// The serialization is retained by the broker. We must release it when
-	// done.
-	runtime.SetFinalizer(serialization, func(s *Serialization) {
-		C.xpc_release(s.ptr)
-	})
+	// Release obj when it becomes unreachable.
+	runtime.AddCleanup(serialization, func(obj C.xpc_object_t) {
+		C.xpc_release(obj)
+	}, obj)
 
 	return serialization, nil
 }
