@@ -134,8 +134,7 @@ func main() {
 		log.Fatalf("Virtual machine creation failed: %s", err)
 	}
 
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
+	signalCh := setupShutdownSignals()
 
 	if err := vm.Start(); err != nil {
 		log.Fatalf("failed to start virtual machine: %s", err)
@@ -144,6 +143,12 @@ func main() {
 	log.Printf("✅ Started virtual machine")
 
 	waitForTermination(vm, signalCh)
+}
+
+func setupShutdownSignals() <-chan os.Signal {
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
+	return signalCh
 }
 
 func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
