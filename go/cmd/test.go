@@ -143,7 +143,10 @@ func main() {
 
 	log.Printf("✅ Started virtual machine")
 
+	waitForTermination(vm, signalCh)
+}
 
+func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 	for {
 		select {
 		case <-signalCh:
