@@ -143,7 +143,6 @@ func main() {
 
 	log.Printf("✅ Started virtual machine")
 
-	errCh := make(chan error, 1)
 
 	for {
 		select {
@@ -166,8 +165,6 @@ func main() {
 				log.Println("The guest stopped - exiting")
 				return
 			}
-		case err := <-errCh:
-			log.Printf("start failed: %v", err)
 		}
 	}
 }
