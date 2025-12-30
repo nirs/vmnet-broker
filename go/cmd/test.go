@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Code-Hex/vz/v3"
 	"github.com/Code-Hex/vz/v3/pkg/vmnet"
@@ -151,30 +153,57 @@ func setupShutdownSignals() <-chan os.Signal {
 	return signalCh
 }
 
-func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
+func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) int {
 	for {
 		select {
 		case sig := <-signalCh:
-			log.Printf("recieved signal %v - shutting down gracefuly", sig)
-			result, err := vm.RequestStop()
-			if err != nil {
-				log.Printf("failed to stop gracefully: %v - hard stop", err)
-				if err := vm.Stop(); err != nil {
-					log.Printf("failed to stop: %v - exiting", err)
-					return
-				}
-			}
-			log.Printf("Requested stop: %v", result)
+			log.Printf("recieved signal %v", sig)
+			return shutdownGracefully(vm)
 		case newState := <-vm.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
 				log.Println("✅ The guest is running")
 			}
 			if newState == vz.VirtualMachineStateStopped {
-				log.Println("The guest stopped - exiting")
-				return
+				log.Println("The guest stopped")
+				return 0
 			}
 		}
 	}
+}
+
+func shutdownGracefully(vm *vz.VirtualMachine) int {
+	log.Printf("Stopping guest gracefuly")
+	if result, err := vm.RequestStop(); !result || err != nil {
+		if err != nil {
+			return hardStop(vm, fmt.Sprintf("Failed to stop guest gracefully: %v", err))
+		}
+		return hardStop(vm, "The guest cannot stop gracefully")
+	}
+	log.Printf("Waiting until guest is stopped")
+
+	// If waiting for "stopped" event times out, fallback to hard stop.
+	timeout := time.After(10 * time.Second)
+	for {
+		select {
+		case newState := <-vm.StateChangedNotify():
+			if newState == vz.VirtualMachineStateStopped {
+				log.Println("The guest stopped")
+				return 0
+			}
+		case <-timeout:
+			return hardStop(vm, "Timeout stopping guest gracefully")
+		}
+	}
+}
+
+func hardStop(vm *vz.VirtualMachine, reason string) int {
+	log.Printf("%s: stopping guest", reason)
+	if err := vm.Stop(); err != nil && vm.State() != vz.VirtualMachineStateStopped {
+		log.Printf("Failed to stop: %v", err)
+		return 1
+	}
+	log.Print("The guest was stopped")
+	return 0
 }
 
 func setRawMode(f *os.File) error {
