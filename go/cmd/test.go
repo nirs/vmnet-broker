@@ -18,6 +18,8 @@ import (
 )
 
 func main() {
+	// Bootloader
+
 	bootLoader, err := vz.NewLinuxBootLoader(
 		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
 		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
@@ -26,6 +28,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create bootloader: %s", err)
 	}
+
+	// Network devices configuration
 
 	serialization, err := vmnet_broker.StartSession("default")
 	if err != nil {
@@ -59,7 +63,6 @@ func main() {
 		log.Fatalf("failed to parse MAC address: %v", err)
 	}
 
-	// 2. Convert net.HardwareAddr to *vz.MACAddress
 	macAddress, err := vz.NewMACAddress(hwAddr)
 	if err != nil {
 		log.Fatalf("failed to create vz.MACAddress: %v", err)
@@ -78,6 +81,8 @@ func main() {
 
 	config.SetNetworkDevicesVirtualMachineConfiguration(
 		[]*vz.VirtioNetworkDeviceConfiguration{networkConfig})
+
+	// Storage devices configuration
 
 	rootDiskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
 		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64.img",
@@ -108,6 +113,8 @@ func main() {
 	config.SetStorageDevicesVirtualMachineConfiguration([]vz.StorageDeviceConfiguration{
 		rootDiskConfig, isoDiskConfig,
 	})
+
+	// Serial ports configuration
 
 	serialPortAttachment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
 	if err != nil {
