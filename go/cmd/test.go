@@ -18,6 +18,15 @@ import (
 )
 
 func main() {
+	bootLoader, err := vz.NewLinuxBootLoader(
+		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
+		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
+		vz.WithInitrd("vm/vm1/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"),
+	)
+	if err != nil {
+		log.Fatalf("failed to create bootloader: %s", err)
+	}
+
 	serialization, err := vmnet_broker.StartSession("default")
 	if err != nil {
 		log.Fatalf("Faled to get network serializaion from broker: %v", err)
@@ -34,15 +43,6 @@ func main() {
 	}
 
 	log.Printf("✅ Using nework %s", ipv4)
-
-	bootLoader, err := vz.NewLinuxBootLoader(
-		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
-		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
-		vz.WithInitrd("vm/vm1/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"),
-	)
-	if err != nil {
-		log.Fatalf("failed to create bootloader: %s", err)
-	}
 
 	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
 	if err != nil {
