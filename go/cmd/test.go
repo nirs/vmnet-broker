@@ -109,9 +109,6 @@ func main() {
 		rootDiskConfig, isoDiskConfig,
 	})
 
-	if err := setRawMode(os.Stdin); err != nil {
-		log.Fatalf("failed to set stdin to raw mode: %s", err)
-	}
 	serialPortAttachment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
 	if err != nil {
 		log.Fatalf("failed to create serial port attachment: %s", err)
@@ -130,6 +127,11 @@ func main() {
 	if !validated || err != nil {
 		log.Fatal("failed to validate config", err)
 	}
+
+	if err := swithTerminalToRawMode(); err != nil {
+		log.Fatalf("failed to swith terminal to raw mode: %s", err)
+	}
+	defer restoreTerminalMode()
 
 	vm, err := vz.NewVirtualMachine(config)
 	if err != nil {
@@ -206,17 +208,24 @@ func hardStop(vm *vz.VirtualMachine, reason string) int {
 	return 0
 }
 
-func setRawMode(f *os.File) error {
-	var attr unix.Termios
-	if err := termios.Tcgetattr(f.Fd(), &attr); err != nil {
+var originalTerminalAttr unix.Termios
+
+func swithTerminalToRawMode() error {
+	fd := os.Stdin.Fd()
+	if err := termios.Tcgetattr(fd, &originalTerminalAttr); err != nil {
 		return err
 	}
 
 	// Put stdin into raw mode, disabling local echo, input canonicalization,
 	// and CR-NL mapping.
-	attr.Iflag &^= unix.ICRNL
-	attr.Lflag &^= unix.ICANON | unix.ECHO
+	rawAttr := originalTerminalAttr
+	rawAttr.Iflag &^= unix.ICRNL
+	rawAttr.Lflag &^= unix.ICANON | unix.ECHO
 
 	// reflects the changed settings
-	return termios.Tcsetattr(f.Fd(), termios.TCSANOW, &attr)
+	return termios.Tcsetattr(fd, termios.TCSANOW, &rawAttr)
+}
+
+func restoreTerminalMode() error {
+	return termios.Tcsetattr(os.Stdin.Fd(), termios.TCSAFLUSH, &originalTerminalAttr)
 }
