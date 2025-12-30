@@ -11,6 +11,8 @@
         <key>com.github.nirs.vmnet-broker</key>
         <true/>
     </dict>
+    <key>UserName</key>
+    <string>_vmnetbroker</string>
     <key>EnableTransactions</key>
     <true/>
     <key>ExitTimeout</key>

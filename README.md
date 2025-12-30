@@ -66,6 +66,30 @@ defining the networks. You can add more networks as needed.
 }
 ```
 
+## Creating a user and group for vmnet-broker
+
+The most secure way to run vmnet-broker is using an unprivileged user. Run the
+following commands to create a system user for vment-broker.
+
+```bash
+set -e
+
+VMNET_BROKER_NAME="_vmnetbroker"
+
+last_id=$(dscl . -list /Users UniqueID | awk '$2 > 200 && $2 < 400 {print $2}' | sort -n | tail -1)
+VMNET_BROKER_ID=$((last_id+1))
+
+dscl . -create /Groups/$VMNET_BROKER_NAME
+dscl . -create /Groups/$VMNET_BROKER_NAME PrimaryGroupID $VMNET_BROKER_ID
+
+dscl . -create /Users/$VMNET_BROKER_NAME
+dscl . -create /Users/$VMNET_BROKER_NAME UniqueID $VMNET_BROKER_ID
+dscl . -create /Users/$VMNET_BROKER_NAME PrimaryGroupID $VMNET_BROKER_ID
+dscl . -create /Users/$VMNET_BROKER_NAME UserShell /usr/bin/false
+dscl . -create /Users/$VMNET_BROKER_NAME RealName "Vmnet Broker Daemon"
+dscl . -create /Users/$VMNET_BROKER_NAME NFSHomeDirectory /var/empty
+```
+
 ## Using the broker in your application
 
 To access the broker you can use the libvmentbroker static library:
