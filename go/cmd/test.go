@@ -216,8 +216,14 @@ func swithTerminalToRawMode() error {
 		return err
 	}
 
-	// Put stdin into raw mode, disabling local echo, input canonicalization,
-	// and CR-NL mapping.
+	// Configure stdin for a transparent serial console:
+	// - unix.ICANON: Disable line-buffering so the guest receives every
+	//   keystroke immediately without waiting for a newline.
+	// - unix.ECHO: Disable local echo; the guest OS displays characters,
+	//   preventing duplicates and keeping passwords hidden.
+	// - unix.ICRNL: Disable CR-to-NL mapping so the guest receives raw carriage
+	//   returns (\r) for proper line ending control.
+
 	rawAttr := originalTerminalAttr
 	rawAttr.Iflag &^= unix.ICRNL
 	rawAttr.Lflag &^= unix.ICANON | unix.ECHO
@@ -227,5 +233,7 @@ func swithTerminalToRawMode() error {
 }
 
 func restoreTerminalMode() error {
+	// TCSAFLUSH ensures that unread guest output doesn't leak into the host
+	// shell prompt.
 	return termios.Tcsetattr(os.Stdin.Fd(), termios.TCSAFLUSH, &originalTerminalAttr)
 }
