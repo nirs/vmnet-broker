@@ -149,11 +149,19 @@ func createConsoleConfiguration() -> VZSerialPortConfiguration {
     // Save terminal state and restore it at exit.
     tcgetattr(STDIN_FILENO, &originalTermios)
     atexit {
+        // TCSAFLUSH ensures that unread guest output doesn't leak into the host
+        // shell prompt.
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios)
     }
 
-    // Put stdin into raw mode, disabling local echo, input canonicalization,
-    // and CR-NL mapping.
+    // Configure stdin for a transparent serial console:
+    // - ICANON: Disable line-buffering so the guest receives every keystroke
+    //   immediately without waiting for a newline.
+    // - ECHO: Disable local echo; the guest OS displays characters, preventing
+    //   duplicates and keeping passwords hidden.
+    // - ICRNL: Disable CR-to-NL mapping so the guest receives raw carriage
+    //   returns (\r) for proper line ending control.
+
     var rawAttributes = originalTermios
     rawAttributes.c_iflag &= ~tcflag_t(ICRNL)
     rawAttributes.c_lflag &= ~tcflag_t(ICANON | ECHO)
