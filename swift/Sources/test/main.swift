@@ -66,12 +66,12 @@ RunLoop.main.run(until: Date.distantFuture)
 class Delegate: NSObject, VZVirtualMachineDelegate {
     // Normal shutdown within the guest (e.g poweroff)
     func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        logger.info("The guest shut down - exiting")
+        logger.info("The guest stopped")
         exit(EXIT_SUCCESS)
     }
     // Not clear when this happens, but good to know if it did.
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: any Error) {
-        logger.warning("The guest stopped with error: \(error) - exiting")
+        logger.warning("The guest stopped with error: \(error)")
         exit(EXIT_FAILURE)
     }
 }
@@ -88,28 +88,32 @@ func setupLogging() {
 
 @MainActor
 func shutdownGracefully(_ vm: VZVirtualMachine) {
+    logger.info("Stopping guest gracefully")
+    do {
+        try vm.requestStop()
+    } catch {
+        hardStop(vm, reason: "Failed to stop guest gracefully: \(error)")
+        return
+    }
+    logger.debug("Waiting until guest is stopped")
+
+    // If guestDidStop is not called, fallback to hard stop.
     DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-        logger.warning("Timeout shutting down - hard stop")
-        vm.stop { _ in
-            logger.info("Hard stop failed - existing")
-            exit(EXIT_FAILURE)
+        if vm.state != .stopped {
+            hardStop(vm, reason: "Timeout stopping guest gracefully")
         }
     }
-    do {
-        logger.info("Shutting down guest gracefully")
-        try vm.requestStop()
-        // guestDidStop will be called.
-        logger.debug("Waitng until guest shut down")
-    } catch {
-        logger.warning("Request failed: \(error.localizedDescription) - hard stop")
-        vm.stop { stopError in
-            if let stopError = stopError {
-                logger.warning("Hard stop failed: \(stopError): existing")
-                exit(EXIT_FAILURE)
-            }
-            logger.info("The guest was stoped -  existing")
-            exit(EXIT_SUCCESS)
+}
+
+func hardStop(_ vm: VZVirtualMachine, reason: String) {
+    logger.warning("\(reason): stopping guest")
+    vm.stop { err in
+        if let err = err, vm.state != .stopped {
+            logger.warning("Failed to stop guest: \(err)")
+            exit(EXIT_FAILURE)
         }
+        logger.info("The guest was stopped")
+        exit(EXIT_SUCCESS)
     }
 }
 
