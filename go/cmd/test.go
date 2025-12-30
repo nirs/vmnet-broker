@@ -232,8 +232,10 @@ func swithTerminalToRawMode() error {
 	return termios.Tcsetattr(fd, termios.TCSANOW, &rawAttr)
 }
 
-func restoreTerminalMode() error {
+func restoreTerminalMode() {
 	// TCSAFLUSH ensures that unread guest output doesn't leak into the host
 	// shell prompt.
-	return termios.Tcsetattr(os.Stdin.Fd(), termios.TCSAFLUSH, &originalTerminalAttr)
+	if err := termios.Tcsetattr(os.Stdin.Fd(), termios.TCSAFLUSH, &originalTerminalAttr); err != nil {
+		log.Printf("Failed to restore terminal to normal mode: %s", err)
+	}
 }
