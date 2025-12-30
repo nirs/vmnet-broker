@@ -151,7 +151,10 @@ func createConsoleConfiguration() -> VZSerialPortConfiguration {
     atexit {
         // TCSAFLUSH ensures that unread guest output doesn't leak into the host
         // shell prompt.
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios)
+        if tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios) != 0 {
+            let reason = String(cString: strerror(errno))
+            logger.warning("Failed to restore terminal to normal mode: \(reason)")
+        }
     }
 
     // Configure stdin for a transparent serial console:
