@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -24,7 +25,15 @@ func main() {
 }
 
 func run() error {
-	bootLoader, err := bootloaderConfiguration()
+	if len(os.Args) != 2 {
+		return fmt.Errorf("Usage: %s <config.json>", os.Args[0])
+	}
+	vmConfig, err := loadVMConfig(os.Args[1])
+	if err != nil {
+		return err
+	}
+
+	bootLoader, err := bootloaderConfiguration(vmConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create bootloader: %w", err)
 	}
@@ -38,13 +47,13 @@ func run() error {
 		return fmt.Errorf("failed to create virtual machine configuration: %w", err)
 	}
 
-	networkConfigs, err := networkDeviceConfigurations()
+	networkConfigs, err := networkDeviceConfigurations(vmConfig)
 	if err != nil {
 		return err
 	}
 	config.SetNetworkDevicesVirtualMachineConfiguration(networkConfigs)
 
-	storageConfigs, err := storageDeviceConfigurations()
+	storageConfigs, err := storageDeviceConfigurations(vmConfig)
 	if err != nil {
 		return err
 	}
@@ -176,7 +185,7 @@ func restoreTerminalMode() {
 	}
 }
 
-func networkDeviceConfigurations() ([]*vz.VirtioNetworkDeviceConfiguration, error) {
+func networkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDeviceConfiguration, error) {
 	serialization, err := vmnet_broker.StartSession("default")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get network serializaion from broker: %w", err)
@@ -204,7 +213,7 @@ func networkDeviceConfigurations() ([]*vz.VirtioNetworkDeviceConfiguration, erro
 		return nil, fmt.Errorf("failed to create virtio network device configuration: %w", err)
 	}
 
-	hwAddr, err := net.ParseMAC("82:e9:dd:3d:68:1f")
+	hwAddr, err := net.ParseMAC(cfg.Mac)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
 	}
@@ -219,10 +228,10 @@ func networkDeviceConfigurations() ([]*vz.VirtioNetworkDeviceConfiguration, erro
 	return []*vz.VirtioNetworkDeviceConfiguration{config}, nil
 }
 
-func storageDeviceConfigurations() ([]vz.StorageDeviceConfiguration, error) {
+func storageDeviceConfigurations(cfg *VMConfig) ([]vz.StorageDeviceConfiguration, error) {
 	diskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
-		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64.img",
-		false,
+		cfg.Disks[0].Path,
+		cfg.Disks[0].Readonly,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create root disk attachment: %w", err)
@@ -234,8 +243,8 @@ func storageDeviceConfigurations() ([]vz.StorageDeviceConfiguration, error) {
 	}
 
 	cidataAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
-		"vm/vm1/cidata.iso",
-		true,
+		cfg.Disks[1].Path,
+		cfg.Disks[1].Readonly,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create iso attachment: %w", err)
@@ -263,10 +272,38 @@ func serialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguratio
 	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}, nil
 }
 
-func bootloaderConfiguration() (vz.BootLoader, error) {
+func bootloaderConfiguration(cfg *VMConfig) (vz.BootLoader, error) {
 	return vz.NewLinuxBootLoader(
-		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
+		cfg.Bootloader.Kernel,
+		vz.WithInitrd(cfg.Bootloader.Initrd),
 		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
-		vz.WithInitrd("vm/vm1/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"),
 	)
+}
+
+type VMConfig struct {
+	Mac        string
+	Bootloader BootloaderConfig
+	Disks      []DiskConfig
+}
+
+type BootloaderConfig struct {
+	Kernel string
+	Initrd string
+}
+
+type DiskConfig struct {
+	Path     string
+	Readonly bool
+}
+
+func loadVMConfig(path string) (*VMConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config: %w", err)
+	}
+	config := &VMConfig{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config json: %w", err)
+	}
+	return config, nil
 }
