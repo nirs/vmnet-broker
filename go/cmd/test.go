@@ -33,9 +33,7 @@ func main() {
 	}
 
 	config.SetNetworkDevicesVirtualMachineConfiguration(networkDeviceConfigurations())
-
 	config.SetStorageDevicesVirtualMachineConfiguration(storageDeviceConfigurations())
-
 	config.SetSerialPortsVirtualMachineConfiguration(serialPortConfigurations())
 
 	validated, err := config.Validate()
@@ -43,22 +41,21 @@ func main() {
 		log.Fatal("failed to validate config", err)
 	}
 
-	if err := swithTerminalToRawMode(); err != nil {
-		log.Fatalf("failed to swith terminal to raw mode: %s", err)
-	}
-	defer restoreTerminalMode()
-
 	vm, err := vz.NewVirtualMachine(config)
 	if err != nil {
 		log.Fatalf("Virtual machine creation failed: %s", err)
 	}
+
+	if err := swithTerminalToRawMode(); err != nil {
+		log.Fatalf("failed to swith terminal to raw mode: %s", err)
+	}
+	defer restoreTerminalMode()
 
 	signalCh := setupShutdownSignals()
 
 	if err := vm.Start(); err != nil {
 		log.Fatalf("failed to start virtual machine: %s", err)
 	}
-
 	log.Printf("✅ Started virtual machine")
 
 	waitForTermination(vm, signalCh)
