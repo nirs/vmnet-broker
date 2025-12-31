@@ -11,7 +11,7 @@ private let logger = Logger(label: "main")
 
 // For restoring terminal to normal mode on exit. Must be global so we can
 // access in atexit.
-var originalTermios = termios()
+var originalTerminalAttr = termios()
 
 // Prevent garbage collections of dispatch sources.
 private var dispatchSignalSources: [DispatchSourceSignal] = []
@@ -30,9 +30,9 @@ let vmConfig = loadVMConfig(CommandLine.arguments[1])
 let configuration = VZVirtualMachineConfiguration()
 configuration.cpuCount = 1
 configuration.memorySize = 1 * 1024 * 1024 * 1024
-configuration.serialPorts = [createConsoleConfiguration()]
 configuration.bootLoader = createBootLoader(vmConfig.bootloader)
-configuration.networkDevices = [createVmnetNetworkDeviceConfiguration(vmConfig.mac)]
+configuration.serialPorts = [createSerialPortConfiguration()]
+configuration.networkDevices = [createNetworkDeviceConfiguration(vmConfig.mac)]
 configuration.storageDevices = [
     createStorageDevice(vmConfig.disks[0]),
     createStorageDevice(vmConfig.disks[1]),
@@ -87,6 +87,20 @@ func setupLogging() {
 }
 
 @MainActor
+func setupShutdownSignals(_ vm: VZVirtualMachine) {
+    for sig in [SIGINT, SIGTERM] {
+        signal(sig, SIG_IGN)
+        let signalSource = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+        signalSource.setEventHandler {
+            logger.info("Received signal \(sig) - exiting")
+            shutdownGracefully(vm)
+        }
+        signalSource.resume()
+        dispatchSignalSources.append(signalSource)
+    }
+}
+
+@MainActor
 func shutdownGracefully(_ vm: VZVirtualMachine) {
     logger.info("Stopping guest gracefully")
     do {
@@ -117,20 +131,6 @@ func hardStop(_ vm: VZVirtualMachine, reason: String) {
     }
 }
 
-@MainActor
-func setupShutdownSignals(_ vm: VZVirtualMachine) {
-    for sig in [SIGINT, SIGTERM] {
-        signal(sig, SIG_IGN)
-        let signalSource = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-        signalSource.setEventHandler {
-            logger.info("Received signal \(sig) - exiting")
-            shutdownGracefully(vm)
-        }
-        signalSource.resume()
-        dispatchSignalSources.append(signalSource)
-    }
-}
-
 func createBootLoader(_ cfg: BootloaderConfig) -> VZBootLoader {
     let kernelURL = URL(fileURLWithPath: cfg.kernel, isDirectory: false)
     let initrdURL = URL(fileURLWithPath: cfg.initrd, isDirectory: false)
@@ -143,15 +143,13 @@ func createBootLoader(_ cfg: BootloaderConfig) -> VZBootLoader {
 }
 
 @MainActor
-func createConsoleConfiguration() -> VZSerialPortConfiguration {
-    let consoleConfiguration = VZVirtioConsoleDeviceSerialPortConfiguration()
-
+func createSerialPortConfiguration() -> VZSerialPortConfiguration {
     // Save terminal state and restore it at exit.
-    tcgetattr(STDIN_FILENO, &originalTermios)
+    tcgetattr(STDIN_FILENO, &originalTerminalAttr)
     atexit {
         // TCSAFLUSH ensures that unread guest output doesn't leak into the host
         // shell prompt.
-        if tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios) != 0 {
+        if tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTerminalAttr) != 0 {
             let reason = String(cString: strerror(errno))
             logger.warning("Failed to restore terminal to normal mode: \(reason)")
         }
@@ -165,16 +163,17 @@ func createConsoleConfiguration() -> VZSerialPortConfiguration {
     // - ICRNL: Disable CR-to-NL mapping so the guest receives raw carriage
     //   returns (\r) for proper line ending control.
 
-    var rawAttributes = originalTermios
+    var rawAttributes = originalTerminalAttr
     rawAttributes.c_iflag &= ~tcflag_t(ICRNL)
     rawAttributes.c_lflag &= ~tcflag_t(ICANON | ECHO)
     tcsetattr(STDIN_FILENO, TCSANOW, &rawAttributes)
 
-    consoleConfiguration.attachment = VZFileHandleSerialPortAttachment(
+    let configuration = VZVirtioConsoleDeviceSerialPortConfiguration()
+    configuration.attachment = VZFileHandleSerialPortAttachment(
         fileHandleForReading: FileHandle.standardInput,
         fileHandleForWriting: FileHandle.standardOutput)
 
-    return consoleConfiguration
+    return configuration
 }
 
 func createStorageDevice(_ cfg: DiskConfig) -> VZStorageDeviceConfiguration {
@@ -186,7 +185,7 @@ func createStorageDevice(_ cfg: DiskConfig) -> VZStorageDeviceConfiguration {
     return VZVirtioBlockDeviceConfiguration(attachment: attachment)
 }
 
-func createVmnetNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceConfiguration {
+func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceConfiguration {
     guard let macAddress = VZMACAddress(string: mac) else {
         fatalError("Invalid MAC address: \(mac)")
     }
