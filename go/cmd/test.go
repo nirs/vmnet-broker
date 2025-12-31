@@ -32,9 +32,23 @@ func main() {
 		log.Fatalf("failed to create virtual machine configuration: %s", err)
 	}
 
-	config.SetNetworkDevicesVirtualMachineConfiguration(networkDeviceConfigurations())
-	config.SetStorageDevicesVirtualMachineConfiguration(storageDeviceConfigurations())
-	config.SetSerialPortsVirtualMachineConfiguration(serialPortConfigurations())
+	networkConfigs, err := networkDeviceConfigurations()
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.SetNetworkDevicesVirtualMachineConfiguration(networkConfigs)
+
+	storageConfigs, err := storageDeviceConfigurations()
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.SetStorageDevicesVirtualMachineConfiguration(storageConfigs)
+
+	serialConfigs, err := serialPortConfigurations()
+	if err != nil {
+		log.Fatal(err)
+	}
+	config.SetSerialPortsVirtualMachineConfiguration(serialConfigs)
 
 	if validated, err := config.Validate(); !validated || err != nil {
 		log.Fatal("failed to validate config", err)
@@ -154,61 +168,61 @@ func restoreTerminalMode() {
 	}
 }
 
-func networkDeviceConfigurations() []*vz.VirtioNetworkDeviceConfiguration {
+func networkDeviceConfigurations() ([]*vz.VirtioNetworkDeviceConfiguration, error) {
 	serialization, err := vmnet_broker.StartSession("default")
 	if err != nil {
-		log.Fatalf("Faled to get network serializaion from broker: %v", err)
+		return nil, fmt.Errorf("failed to get network serializaion from broker: %w", err)
 	}
 
 	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())
 	if err != nil {
-		log.Fatalf("failed to create network from serialization: %v", err)
+		return nil, fmt.Errorf("failed to create network from serialization: %w", err)
 	}
 
 	ipv4, err := network.IPv4Subnet()
 	if err != nil {
-		log.Fatalf("failed to get IPv4 subnet: %v", err)
+		return nil, fmt.Errorf("failed to get IPv4 subnet: %w", err)
 	}
 
 	log.Printf("✅ Using nework %s", ipv4)
 
 	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
 	if err != nil {
-		log.Fatalf("failed to create vmnet network device attachment: %s", err)
+		return nil, fmt.Errorf("failed to create vmnet network device attachment: %w", err)
 	}
 
 	config, err := vz.NewVirtioNetworkDeviceConfiguration(attachment)
 	if err != nil {
-		log.Fatalf("failed to create virtio network device configuration: %s", err)
+		return nil, fmt.Errorf("failed to create virtio network device configuration: %w", err)
 	}
 
 	hwAddr, err := net.ParseMAC("82:e9:dd:3d:68:1f")
 	if err != nil {
-		log.Fatalf("failed to parse MAC address: %v", err)
+		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
 	}
 
 	macAddress, err := vz.NewMACAddress(hwAddr)
 	if err != nil {
-		log.Fatalf("failed to create vz.MACAddress: %v", err)
+		return nil, fmt.Errorf("failed to create vz.MACAddress: %w", err)
 	}
 
 	config.SetMACAddress(macAddress)
 
-	return []*vz.VirtioNetworkDeviceConfiguration{config}
+	return []*vz.VirtioNetworkDeviceConfiguration{config}, nil
 }
 
-func storageDeviceConfigurations() []vz.StorageDeviceConfiguration {
+func storageDeviceConfigurations() ([]vz.StorageDeviceConfiguration, error) {
 	diskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
 		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64.img",
 		false,
 	)
 	if err != nil {
-		log.Fatalf("failed to create root disk attachment: %v", err)
+		return nil, fmt.Errorf("failed to create root disk attachment: %w", err)
 	}
 
 	diskConfig, err := vz.NewVirtioBlockDeviceConfiguration(diskAttachment)
 	if err != nil {
-		log.Fatalf("failed to create root disk config: %s", err)
+		return nil, fmt.Errorf("failed to create root disk config: %w", err)
 	}
 
 	cidataAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
@@ -216,29 +230,29 @@ func storageDeviceConfigurations() []vz.StorageDeviceConfiguration {
 		true,
 	)
 	if err != nil {
-		log.Fatalf("failed to create iso attachment: %v", err)
+		return nil, fmt.Errorf("failed to create iso attachment: %w", err)
 	}
 
 	cidataConfig, err := vz.NewVirtioBlockDeviceConfiguration(cidataAttachment)
 	if err != nil {
-		log.Fatalf("failed to create iso disk config: %s", err)
+		return nil, fmt.Errorf("failed to create iso disk config: %w", err)
 	}
 
-	return []vz.StorageDeviceConfiguration{diskConfig, cidataConfig}
+	return []vz.StorageDeviceConfiguration{diskConfig, cidataConfig}, nil
 }
 
-func serialPortConfigurations() []*vz.VirtioConsoleDeviceSerialPortConfiguration {
+func serialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguration, error) {
 	attatchment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
 	if err != nil {
-		log.Fatalf("failed to create serial port attachment: %s", err)
+		return nil, fmt.Errorf("failed to create serial port attachment: %w", err)
 	}
 
 	config, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(attatchment)
 	if err != nil {
-		log.Fatalf("failed to create console device serial port configuartion: %s", err)
+		return nil, fmt.Errorf("failed to create console device serial port configuartion: %w", err)
 	}
 
-	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}
+	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}, nil
 }
 
 func bootloaderConfiguration() (vz.BootLoader, error) {
