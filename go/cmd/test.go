@@ -39,23 +39,10 @@ func main() {
 	}
 
 	config.SetNetworkDevicesVirtualMachineConfiguration(networkDeviceConfigurations())
+
 	config.SetStorageDevicesVirtualMachineConfiguration(storageDeviceConfigurations())
 
-	// Serial ports configuration
-
-	serialPortAttachment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
-	if err != nil {
-		log.Fatalf("failed to create serial port attachment: %s", err)
-	}
-
-	consoleConfig, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
-	if err != nil {
-		log.Fatalf("failed to create console device serial port configuartion: %s", err)
-	}
-
-	config.SetSerialPortsVirtualMachineConfiguration([]*vz.VirtioConsoleDeviceSerialPortConfiguration{
-		consoleConfig,
-	})
+	config.SetSerialPortsVirtualMachineConfiguration(serialPortConfigurations())
 
 	validated, err := config.Validate()
 	if !validated || err != nil {
@@ -248,4 +235,18 @@ func storageDeviceConfigurations() []vz.StorageDeviceConfiguration {
 	}
 
 	return []vz.StorageDeviceConfiguration{diskConfig, cidataConfig}
+}
+
+func serialPortConfigurations() []*vz.VirtioConsoleDeviceSerialPortConfiguration {
+	attatchment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
+	if err != nil {
+		log.Fatalf("failed to create serial port attachment: %s", err)
+	}
+
+	config, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(attatchment)
+	if err != nil {
+		log.Fatalf("failed to create console device serial port configuartion: %s", err)
+	}
+
+	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}
 }
