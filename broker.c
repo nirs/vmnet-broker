@@ -1,3 +1,5 @@
+#include <CoreFoundation/CFBase.h>
+#include <arpa/inet.h>
 #include <dispatch/dispatch.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -19,6 +21,10 @@ struct network {
 };
 
 bool verbose = true;
+
+// Temporary hard-coded configuration.
+static const char *config_subnet = "192.168.42.1";
+static const char *config_mask = "255.255.255.0";
 
 // The context used for main() and signal handlers.
 static const struct context main_context = { .name = "main" };
@@ -75,9 +81,30 @@ static vmnet_network_configuration_ref network_config(const struct context *ctx)
     }
 
     // TODO: Add configuration options from broker network config.
-    // TODO: Log network configuration, showing the defaults we get from vmnet.
+
+    struct in_addr subnet_addr;
+    if (inet_pton(AF_INET, config_subnet, &subnet_addr) == 0) {
+        WARNF("[%s] failed to parse subnet '%s': %s", ctx->name, config_subnet, strerror(errno));
+        goto error;
+    }
+
+    struct in_addr subnet_mask;
+    if (inet_pton(AF_INET, config_mask, &subnet_mask) == 0) {
+        WARNF("[%s] failed to parse mask '%s': %s", ctx->name, config_mask, strerror(errno));
+        goto error;
+    }
+
+    status = vmnet_network_configuration_set_ipv4_subnet(config, &subnet_addr, &subnet_mask);
+    if (status != VMNET_SUCCESS) {
+        WARNF("[%s] failed to set ipv4 subnet: (%d) %s", ctx->name, status, vmnet_strerror(status));
+        goto error;
+    }
 
     return config;
+
+error:
+    CFRelease(config);
+    return NULL;
 }
 
 static struct network *create_network(const struct context *ctx) {
