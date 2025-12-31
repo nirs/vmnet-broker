@@ -36,8 +36,7 @@ func main() {
 	config.SetStorageDevicesVirtualMachineConfiguration(storageDeviceConfigurations())
 	config.SetSerialPortsVirtualMachineConfiguration(serialPortConfigurations())
 
-	validated, err := config.Validate()
-	if !validated || err != nil {
+	if validated, err := config.Validate(); !validated || err != nil {
 		log.Fatal("failed to validate config", err)
 	}
 
