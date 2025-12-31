@@ -8,6 +8,7 @@ import vmnet_broker
 // MARK: Global state
 
 private let logger = Logger(label: "main")
+private let miB: UInt64 = 1024 * 1024
 
 // For restoring terminal to normal mode on exit. Must be global so we can
 // access in atexit.
@@ -28,8 +29,8 @@ guard CommandLine.arguments.count == 2 else {
 let vmConfig = loadVMConfig(CommandLine.arguments[1])
 
 let configuration = VZVirtualMachineConfiguration()
-configuration.cpuCount = 1
-configuration.memorySize = 1 * 1024 * 1024 * 1024
+configuration.cpuCount = vmConfig.cpus
+configuration.memorySize = vmConfig.memory * miB
 configuration.bootLoader = createBootLoader(vmConfig.bootloader)
 configuration.serialPorts = [createSerialPortConfiguration()]
 configuration.networkDevices = [createNetworkDeviceConfiguration(vmConfig.mac)]
@@ -216,6 +217,8 @@ func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceCon
 // MARK: - Loading configuration
 
 struct VMConfig: Codable {
+    let cpus: Int
+    let memory: UInt64
     let mac: String
     let bootloader: BootloaderConfig
     let disks: [DiskConfig]
