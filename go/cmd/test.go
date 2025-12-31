@@ -162,31 +162,34 @@ func setupShutdownSignals() <-chan os.Signal {
 	return signalCh
 }
 
-func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) int {
+func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 	for {
 		select {
 		case sig := <-signalCh:
 			log.Printf("recieved signal %v", sig)
-			return shutdownGracefully(vm)
+			shutdownGracefully(vm)
+			return
 		case newState := <-vm.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
 				log.Println("✅ The guest is running")
 			}
 			if newState == vz.VirtualMachineStateStopped {
 				log.Println("The guest stopped")
-				return 0
+				return
 			}
 		}
 	}
 }
 
-func shutdownGracefully(vm *vz.VirtualMachine) int {
+func shutdownGracefully(vm *vz.VirtualMachine) {
 	log.Printf("Stopping guest gracefuly")
 	if result, err := vm.RequestStop(); !result || err != nil {
+		reason := "The guest cannot stop gracefully"
 		if err != nil {
-			return hardStop(vm, fmt.Sprintf("Failed to stop guest gracefully: %v", err))
+			reason = fmt.Sprintf("Failed to stop guest gracefully: %v", err)
 		}
-		return hardStop(vm, "The guest cannot stop gracefully")
+		hardStop(vm, reason)
+		return
 	}
 	log.Printf("Waiting until guest is stopped")
 
@@ -197,22 +200,22 @@ func shutdownGracefully(vm *vz.VirtualMachine) int {
 		case newState := <-vm.StateChangedNotify():
 			if newState == vz.VirtualMachineStateStopped {
 				log.Println("The guest stopped")
-				return 0
+				return
 			}
 		case <-timeout:
-			return hardStop(vm, "Timeout stopping guest gracefully")
+			hardStop(vm, "Timeout stopping guest gracefully")
+			return
 		}
 	}
 }
 
-func hardStop(vm *vz.VirtualMachine, reason string) int {
+func hardStop(vm *vz.VirtualMachine, reason string) {
 	log.Printf("%s: stopping guest", reason)
 	if err := vm.Stop(); err != nil && vm.State() != vz.VirtualMachineStateStopped {
 		log.Printf("Failed to stop: %v", err)
-		return 1
+		return
 	}
 	log.Print("The guest was stopped")
-	return 0
 }
 
 var originalTerminalAttr unix.Termios
