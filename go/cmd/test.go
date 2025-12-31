@@ -29,47 +29,6 @@ func main() {
 		log.Fatalf("failed to create bootloader: %s", err)
 	}
 
-	// Network devices configuration
-
-	serialization, err := vmnet_broker.StartSession("default")
-	if err != nil {
-		log.Fatalf("Faled to get network serializaion from broker: %v", err)
-	}
-
-	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())
-	if err != nil {
-		log.Fatalf("failed to create network from serialization: %v", err)
-	}
-
-	ipv4, err := network.IPv4Subnet()
-	if err != nil {
-		log.Fatalf("failed to get IPv4 subnet: %v", err)
-	}
-
-	log.Printf("✅ Using nework %s", ipv4)
-
-	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
-	if err != nil {
-		log.Fatalf("failed to create vmnet network device attachment: %s", err)
-	}
-
-	networkConfig, err := vz.NewVirtioNetworkDeviceConfiguration(attachment)
-	if err != nil {
-		log.Fatalf("failed to create virtio network device configuration: %s", err)
-	}
-
-	hwAddr, err := net.ParseMAC("82:e9:dd:3d:68:1f")
-	if err != nil {
-		log.Fatalf("failed to parse MAC address: %v", err)
-	}
-
-	macAddress, err := vz.NewMACAddress(hwAddr)
-	if err != nil {
-		log.Fatalf("failed to create vz.MACAddress: %v", err)
-	}
-
-	networkConfig.SetMACAddress(macAddress)
-
 	config, err := vz.NewVirtualMachineConfiguration(
 		bootLoader,
 		1,
@@ -79,8 +38,7 @@ func main() {
 		log.Fatalf("failed to create virtual machine configuration: %s", err)
 	}
 
-	config.SetNetworkDevicesVirtualMachineConfiguration(
-		[]*vz.VirtioNetworkDeviceConfiguration{networkConfig})
+	config.SetNetworkDevicesVirtualMachineConfiguration(networkDeviceConfigurations())
 
 	// Storage devices configuration
 
@@ -248,4 +206,47 @@ func restoreTerminalMode() {
 	if err := termios.Tcsetattr(os.Stdin.Fd(), termios.TCSAFLUSH, &originalTerminalAttr); err != nil {
 		log.Printf("Failed to restore terminal to normal mode: %s", err)
 	}
+}
+
+func networkDeviceConfigurations() []*vz.VirtioNetworkDeviceConfiguration {
+	serialization, err := vmnet_broker.StartSession("default")
+	if err != nil {
+		log.Fatalf("Faled to get network serializaion from broker: %v", err)
+	}
+
+	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())
+	if err != nil {
+		log.Fatalf("failed to create network from serialization: %v", err)
+	}
+
+	ipv4, err := network.IPv4Subnet()
+	if err != nil {
+		log.Fatalf("failed to get IPv4 subnet: %v", err)
+	}
+
+	log.Printf("✅ Using nework %s", ipv4)
+
+	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
+	if err != nil {
+		log.Fatalf("failed to create vmnet network device attachment: %s", err)
+	}
+
+	config, err := vz.NewVirtioNetworkDeviceConfiguration(attachment)
+	if err != nil {
+		log.Fatalf("failed to create virtio network device configuration: %s", err)
+	}
+
+	hwAddr, err := net.ParseMAC("82:e9:dd:3d:68:1f")
+	if err != nil {
+		log.Fatalf("failed to parse MAC address: %v", err)
+	}
+
+	macAddress, err := vz.NewMACAddress(hwAddr)
+	if err != nil {
+		log.Fatalf("failed to create vz.MACAddress: %v", err)
+	}
+
+	config.SetMACAddress(macAddress)
+
+	return []*vz.VirtioNetworkDeviceConfiguration{config}
 }
