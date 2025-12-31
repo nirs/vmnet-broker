@@ -33,7 +33,7 @@ func run() error {
 		return err
 	}
 
-	bootLoader, err := bootloaderConfiguration(vmConfig)
+	bootLoader, err := createBootLoader(vmConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create bootloader: %w", err)
 	}
@@ -47,23 +47,23 @@ func run() error {
 		return fmt.Errorf("failed to create virtual machine configuration: %w", err)
 	}
 
-	networkConfigs, err := networkDeviceConfigurations(vmConfig)
+	serialConfigs, err := createSerialPortConfigurations()
 	if err != nil {
 		return err
 	}
-	config.SetNetworkDevicesVirtualMachineConfiguration(networkConfigs)
+	config.SetSerialPortsVirtualMachineConfiguration(serialConfigs)
 
-	storageConfigs, err := storageDeviceConfigurations(vmConfig)
+	storageConfigs, err := createStorageDeviceConfigurations(vmConfig)
 	if err != nil {
 		return err
 	}
 	config.SetStorageDevicesVirtualMachineConfiguration(storageConfigs)
 
-	serialConfigs, err := serialPortConfigurations()
+	networkConfigs, err := createNetworkDeviceConfigurations(vmConfig)
 	if err != nil {
 		return err
 	}
-	config.SetSerialPortsVirtualMachineConfiguration(serialConfigs)
+	config.SetNetworkDevicesVirtualMachineConfiguration(networkConfigs)
 
 	if validated, err := config.Validate(); !validated || err != nil {
 		return fmt.Errorf("failed to validate config: %w", err)
@@ -84,7 +84,6 @@ func run() error {
 	if err := vm.Start(); err != nil {
 		return fmt.Errorf("failed to start virtual machine: %w", err)
 	}
-	log.Printf("✅ Started virtual machine")
 
 	waitForTermination(vm, signalCh)
 
@@ -105,9 +104,6 @@ func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 			shutdownGracefully(vm)
 			return
 		case newState := <-vm.StateChangedNotify():
-			if newState == vz.VirtualMachineStateRunning {
-				log.Println("✅ The guest is running")
-			}
 			if newState == vz.VirtualMachineStateStopped {
 				log.Println("The guest stopped")
 				return
@@ -185,7 +181,12 @@ func restoreTerminalMode() {
 	}
 }
 
-func networkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDeviceConfiguration, error) {
+func createNetworkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDeviceConfiguration, error) {
+	macAddress, err := createMacAddress(cfg.Mac)
+	if err != nil {
+		return nil, err
+	}
+
 	serialization, err := vmnet_broker.StartSession("default")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get network serializaion from broker: %w", err)
@@ -195,13 +196,6 @@ func networkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDeviceConfig
 	if err != nil {
 		return nil, fmt.Errorf("failed to create network from serialization: %w", err)
 	}
-
-	ipv4, err := network.IPv4Subnet()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get IPv4 subnet: %w", err)
-	}
-
-	log.Printf("✅ Using nework %s", ipv4)
 
 	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
 	if err != nil {
@@ -213,22 +207,24 @@ func networkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDeviceConfig
 		return nil, fmt.Errorf("failed to create virtio network device configuration: %w", err)
 	}
 
-	hwAddr, err := net.ParseMAC(cfg.Mac)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
-	}
-
-	macAddress, err := vz.NewMACAddress(hwAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vz.MACAddress: %w", err)
-	}
-
 	config.SetMACAddress(macAddress)
 
 	return []*vz.VirtioNetworkDeviceConfiguration{config}, nil
 }
 
-func storageDeviceConfigurations(cfg *VMConfig) ([]vz.StorageDeviceConfiguration, error) {
+func createMacAddress(mac string) (*vz.MACAddress, error) {
+	hwAddr, err := net.ParseMAC(mac)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse MAC address: %w", err)
+	}
+	macAddress, err := vz.NewMACAddress(hwAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vz.MACAddress: %w", err)
+	}
+	return macAddress, nil
+}
+
+func createStorageDeviceConfigurations(cfg *VMConfig) ([]vz.StorageDeviceConfiguration, error) {
 	diskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
 		cfg.Disks[0].Path,
 		cfg.Disks[0].Readonly,
@@ -258,7 +254,7 @@ func storageDeviceConfigurations(cfg *VMConfig) ([]vz.StorageDeviceConfiguration
 	return []vz.StorageDeviceConfiguration{diskConfig, cidataConfig}, nil
 }
 
-func serialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguration, error) {
+func createSerialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguration, error) {
 	attatchment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create serial port attachment: %w", err)
@@ -272,7 +268,7 @@ func serialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguratio
 	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}, nil
 }
 
-func bootloaderConfiguration(cfg *VMConfig) (vz.BootLoader, error) {
+func createBootLoader(cfg *VMConfig) (vz.BootLoader, error) {
 	return vz.NewLinuxBootLoader(
 		cfg.Bootloader.Kernel,
 		vz.WithInitrd(cfg.Bootloader.Initrd),
