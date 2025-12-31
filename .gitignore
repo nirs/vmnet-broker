@@ -13,8 +13,8 @@
 # Go
 /go/test
 
-# Test vm
-/vm/
+# Test vms
+/vm*/
 
 # macOS metadata
 .DS_Store

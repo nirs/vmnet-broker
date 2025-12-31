@@ -1,0 +1,17 @@
+{
+    "mac": "92:c9:52:b7:6c:08",
+    "bootloader": {
+        "kernel": "vm2/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
+        "initrd": "vm2/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"
+    },
+    "disks": [
+        {
+            "path": "vm2/ubuntu-25.04-server-cloudimg-arm64.img",
+            "readonly": false
+        },
+        {
+            "path": "vm2/cidata.iso",
+            "readonly": true
+        }
+    ]
+}
