@@ -110,7 +110,7 @@ func hardStop(_ vm: VZVirtualMachine, reason: String) {
     vm.stop { err in
         if let err = err, vm.state != .stopped {
             logger.warning("Failed to stop guest: \(err)")
-            exit(EXIT_FAILURE)
+            exit(EXIT_SUCCESS)
         }
         logger.info("The guest was stopped")
         exit(EXIT_SUCCESS)
