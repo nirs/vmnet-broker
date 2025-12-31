@@ -39,38 +39,7 @@ func main() {
 	}
 
 	config.SetNetworkDevicesVirtualMachineConfiguration(networkDeviceConfigurations())
-
-	// Storage devices configuration
-
-	rootDiskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
-		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64.img",
-		false,
-	)
-	if err != nil {
-		log.Fatalf("failed to create root disk attachment: %v", err)
-	}
-
-	isoAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
-		"vm/vm1/cidata.iso",
-		true,
-	)
-	if err != nil {
-		log.Fatalf("failed to create iso attachment: %v", err)
-	}
-
-	rootDiskConfig, err := vz.NewVirtioBlockDeviceConfiguration(rootDiskAttachment)
-	if err != nil {
-		log.Fatalf("failed to create root disk config: %s", err)
-	}
-
-	isoDiskConfig, err := vz.NewVirtioBlockDeviceConfiguration(isoAttachment)
-	if err != nil {
-		log.Fatalf("failed to create iso disk config: %s", err)
-	}
-
-	config.SetStorageDevicesVirtualMachineConfiguration([]vz.StorageDeviceConfiguration{
-		rootDiskConfig, isoDiskConfig,
-	})
+	config.SetStorageDevicesVirtualMachineConfiguration(storageDeviceConfigurations())
 
 	// Serial ports configuration
 
@@ -249,4 +218,34 @@ func networkDeviceConfigurations() []*vz.VirtioNetworkDeviceConfiguration {
 	config.SetMACAddress(macAddress)
 
 	return []*vz.VirtioNetworkDeviceConfiguration{config}
+}
+
+func storageDeviceConfigurations() []vz.StorageDeviceConfiguration {
+	diskAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
+		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64.img",
+		false,
+	)
+	if err != nil {
+		log.Fatalf("failed to create root disk attachment: %v", err)
+	}
+
+	diskConfig, err := vz.NewVirtioBlockDeviceConfiguration(diskAttachment)
+	if err != nil {
+		log.Fatalf("failed to create root disk config: %s", err)
+	}
+
+	cidataAttachment, err := vz.NewDiskImageStorageDeviceAttachment(
+		"vm/vm1/cidata.iso",
+		true,
+	)
+	if err != nil {
+		log.Fatalf("failed to create iso attachment: %v", err)
+	}
+
+	cidataConfig, err := vz.NewVirtioBlockDeviceConfiguration(cidataAttachment)
+	if err != nil {
+		log.Fatalf("failed to create iso disk config: %s", err)
+	}
+
+	return []vz.StorageDeviceConfiguration{diskConfig, cidataConfig}
 }
