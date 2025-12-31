@@ -18,6 +18,8 @@ import (
 	"github.com/nirs/vmnet-broker/go/vmnet_broker"
 )
 
+const mIb = 1024 * 1024
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -40,8 +42,8 @@ func run() error {
 
 	config, err := vz.NewVirtualMachineConfiguration(
 		bootLoader,
-		1,
-		1*1024*1024*1024,
+		vmConfig.Cpus,
+		vmConfig.Memory*mIb,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create virtual machine configuration: %w", err)
@@ -277,6 +279,8 @@ func createBootLoader(cfg *VMConfig) (vz.BootLoader, error) {
 }
 
 type VMConfig struct {
+	Cpus       uint
+	Memory     uint64
 	Mac        string
 	Bootloader BootloaderConfig
 	Disks      []DiskConfig
