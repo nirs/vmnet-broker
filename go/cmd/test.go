@@ -18,9 +18,15 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	bootLoader, err := bootloaderConfiguration()
 	if err != nil {
-		log.Fatalf("failed to create bootloader: %s", err)
+		return fmt.Errorf("failed to create bootloader: %w", err)
 	}
 
 	config, err := vz.NewVirtualMachineConfiguration(
@@ -29,49 +35,51 @@ func main() {
 		1*1024*1024*1024,
 	)
 	if err != nil {
-		log.Fatalf("failed to create virtual machine configuration: %s", err)
+		return fmt.Errorf("failed to create virtual machine configuration: %w", err)
 	}
 
 	networkConfigs, err := networkDeviceConfigurations()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	config.SetNetworkDevicesVirtualMachineConfiguration(networkConfigs)
 
 	storageConfigs, err := storageDeviceConfigurations()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	config.SetStorageDevicesVirtualMachineConfiguration(storageConfigs)
 
 	serialConfigs, err := serialPortConfigurations()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	config.SetSerialPortsVirtualMachineConfiguration(serialConfigs)
 
 	if validated, err := config.Validate(); !validated || err != nil {
-		log.Fatal("failed to validate config", err)
+		return fmt.Errorf("failed to validate config: %w", err)
 	}
 
 	vm, err := vz.NewVirtualMachine(config)
 	if err != nil {
-		log.Fatalf("Virtual machine creation failed: %s", err)
+		return fmt.Errorf("failed to create virtual machine: %w", err)
 	}
 
 	if err := swithTerminalToRawMode(); err != nil {
-		log.Fatalf("failed to swith terminal to raw mode: %s", err)
+		return fmt.Errorf("failed to swith terminal to raw mode: %w", err)
 	}
 	defer restoreTerminalMode()
 
 	signalCh := setupShutdownSignals()
 
 	if err := vm.Start(); err != nil {
-		log.Fatalf("failed to start virtual machine: %s", err)
+		return fmt.Errorf("failed to start virtual machine: %w", err)
 	}
 	log.Printf("✅ Started virtual machine")
 
 	waitForTermination(vm, signalCh)
+
+	return nil
 }
 
 func setupShutdownSignals() <-chan os.Signal {
