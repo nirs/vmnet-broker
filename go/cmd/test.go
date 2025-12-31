@@ -18,13 +18,7 @@ import (
 )
 
 func main() {
-	// Bootloader
-
-	bootLoader, err := vz.NewLinuxBootLoader(
-		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
-		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
-		vz.WithInitrd("vm/vm1/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"),
-	)
+	bootLoader, err := bootloaderConfiguration()
 	if err != nil {
 		log.Fatalf("failed to create bootloader: %s", err)
 	}
@@ -249,4 +243,12 @@ func serialPortConfigurations() []*vz.VirtioConsoleDeviceSerialPortConfiguration
 	}
 
 	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}
+}
+
+func bootloaderConfiguration() (vz.BootLoader, error) {
+	return vz.NewLinuxBootLoader(
+		"vm/vm1/ubuntu-25.04-server-cloudimg-arm64-vmlinuz-generic",
+		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
+		vz.WithInitrd("vm/vm1/ubuntu-25.04-server-cloudimg-arm64-initrd-generic"),
+	)
 }
