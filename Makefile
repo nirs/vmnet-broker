@@ -67,3 +67,4 @@ print:
 
 clean:
 	rm -f vmnet-broker test-c test-swift test-go *.o *.a
+	rm -rf swift/.build
