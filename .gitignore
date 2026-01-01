@@ -14,7 +14,8 @@
 /go/test
 
 # Test vms
-/vm*/
+/.vms/
+/.cache/
 
 # macOS metadata
 .DS_Store

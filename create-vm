@@ -1,0 +1,157 @@
+#!/bin/bash
+
+set -e
+
+CACHE_DIR=".cache"
+VMS_DIR=".vms"
+
+ARCH=$(uname -m | sed s/x86_64/amd64/)
+
+IMAGE_URL="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-${ARCH}.img"
+KERNEL_URL="https://cloud-images.ubuntu.com/plucky/current/unpacked/plucky-server-cloudimg-${ARCH}-vmlinuz-generic"
+INITRD_URL="https://cloud-images.ubuntu.com/plucky/current/unpacked/plucky-server-cloudimg-${ARCH}-initrd-generic"
+
+# Generate Random Unicast Locally Administered MAC
+generate_mac_address() {
+    # -tu1: Type unsigned decimal, 1-byte units
+    local bytes=($(od -An -N6 -tu1 /dev/urandom))
+
+    # Make it Unicast Locally Administered
+    # (Value AND 254) clears bit 0 (Unicast)
+    # (Value OR 2) sets bit 1 (Locally Administered)
+    bytes[0]=$(( (bytes[0] & 254) | 2 ))
+
+    printf "%02x:%02x:%02x:%02x:%02x:%02x" "${bytes[@]}"
+}
+
+download_image() {
+    local url="$1"
+    local filename="$2"
+    if [ ! -f "$CACHE_DIR/$filename" ]; then
+        echo "Downloading $url"
+        curl --fail --show-error --location "$url" -o "$CACHE_DIR/$filename.qcow2"
+        echo "Converting image to raw format"
+        qemu-img convert -f qcow2 -O raw "$CACHE_DIR/$filename.qcow2" "$CACHE_DIR/$filename.tmp"
+        rm "$CACHE_DIR/$filename.qcow2"
+        echo "Resize image to 20g"
+        qemu-img resize "$CACHE_DIR/$filename.tmp" 20g
+        mv "$CACHE_DIR/$filename.tmp" "$CACHE_DIR/$filename"
+    fi
+}
+
+download_kernel() {
+    local url="$1"
+    local filename="$2"
+    if [ ! -f "$CACHE_DIR/kernel" ]; then
+        echo "Downloading $url"
+        curl --fail --show-error --location "$url" -o "$CACHE_DIR/$filename.tmp.gz"
+        echo "Decompressing kernel"
+        gzip -d "$CACHE_DIR/$filename.tmp.gz"
+        mv "$CACHE_DIR/$filename.tmp" "$CACHE_DIR/$filename"
+    fi
+}
+
+download_initrd() {
+    local url="$1"
+    local filename="$2"
+    if [ ! -f "$CACHE_DIR/$filename" ]; then
+        echo "Downloading $url"
+        curl --fail --show-error --location "$url" -o "$CACHE_DIR/$filename.tmp"
+        mv "$CACHE_DIR/$filename.tmp" "$CACHE_DIR/$filename"
+    fi
+}
+
+create_cloud_init_iso() {
+    cidata_dir="$VM_DIR/cidata"
+    mkdir "$cidata_dir"
+
+    cat <<EOF > "$cidata_dir/user-data"
+#cloud-config
+password: pass
+chpasswd:
+  expire: false
+EOF
+
+    cat <<EOF > "$cidata_dir/network-config"
+version: 2
+ethernets:
+  eth0:
+    match:
+      macaddress: ${MAC_ADDRESS}
+    set-name: eth0
+    dhcp4: true
+    dhcp-identifier: mac
+EOF
+
+    cat <<EOF > "$cidata_dir/meta-data"
+instance-id: ${VM_UUID}
+local-hostname: ${VM_NAME}
+EOF
+
+    echo "Generating cloud-init ISO..."
+    hdiutil makehybrid \
+        -o "$VM_DIR/cidata.iso" \
+        -joliet \
+        -iso \
+        -joliet-volume-name cidata \
+        -quiet \
+        "$cidata_dir/"
+}
+
+create_config_json() {
+    cat <<EOF > "$VM_DIR/config.json"
+{
+  "cpus": 1,
+  "memory": 1024,
+  "mac": "${MAC_ADDRESS}",
+  "bootloader": {
+    "kernel": "${VM_DIR}/kernel",
+    "initrd": "${VM_DIR}/initrd"
+  },
+  "disks": [
+    {
+      "path": "${VM_DIR}/disk.img",
+      "readonly": false
+    },
+    {
+      "path": "${VM_DIR}/cidata.iso",
+      "readonly": true
+    }
+  ]
+}
+EOF
+}
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: create-vm vm-name"
+    exit 1
+fi
+
+VM_NAME="$1"
+VM_DIR="$VMS_DIR/${VM_NAME}"
+
+if [ -d "$VM_DIR" ]; then
+    echo "Error: VM directory '${VM_DIR}' already exists"
+    exit 1
+fi
+
+MAC_ADDRESS=$(generate_mac_address)
+VM_UUID=$(uuidgen | tr "A-F" "a-f")
+
+mkdir -p "$CACHE_DIR"
+mkdir -p "$VM_DIR"
+
+download_image "$IMAGE_URL" disk.img
+download_kernel "$KERNEL_URL" kernel
+download_initrd "$INITRD_URL" initrd
+
+echo "Creating VM directory..."
+
+cp -c "$CACHE_DIR/disk.img" "$VM_DIR/disk.img"
+cp -c "$CACHE_DIR/kernel" "$VM_DIR/kernel"
+cp -c "$CACHE_DIR/initrd" "$VM_DIR/initrd"
+
+create_cloud_init_iso
+create_config_json
+
+echo "Created ${VM_DIR}"
