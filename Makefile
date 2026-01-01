@@ -21,8 +21,8 @@ test-c: test.c common.c common.h libvmnet-broker.a
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 test-swift: swift/Frameworks/vmnet-broker.xcframework
-	swift build --package-path swift -c release -Xswiftc -g
-	ln -fs swift/.build/release/test $@
+	cd swift && swift build
+	ln -fs $(shell cd swift && swift build --show-bin-path)/test $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 test-go:
