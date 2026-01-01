@@ -20,7 +20,7 @@ test-c: test.c common.c common.h libvmnet-broker.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnet-broker test.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-swift:
+test-swift: swift/Frameworks/vmnet-broker.xcframework
 	swift build --package-path swift -c release -Xswiftc -g
 	ln -fs swift/.build/release/test $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
@@ -28,6 +28,16 @@ test-swift:
 test-go:
 	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
+
+swift/Frameworks/vmnet-broker.xcframework: libvmnet-broker.a vmnet-broker.h module.modulemap
+	rm -rf "$@"
+	mkdir -p .headers
+	cp vmnet-broker.h module.modulemap .headers/
+	xcodebuild -create-xcframework \
+		-library libvmnet-broker.a \
+		-headers .headers \
+		-output "$@"
+	rm -rf .headers
 
 libvmnet-broker.a: client.c vmnet-broker.h
 	$(CC) $(CFLAGS) -c client.c

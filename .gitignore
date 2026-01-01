@@ -9,6 +9,7 @@
 # Swift
 /swift/.build/
 /swift/Package.resolved
+/swift/Frameworks/
 
 # Go
 /go/test

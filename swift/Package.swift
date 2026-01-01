@@ -4,30 +4,35 @@
 import Foundation
 import PackageDescription
 
-let packageRoot = Context.packageDirectory
-
 let package = Package(
-    name: "swift",
+    name: "VmnetBroker",
     platforms: [.macOS(.v26)],
+    products: [
+        .library(
+            name: "VmnetBroker",
+            targets: ["VmnetBroker"],
+        )
+    ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
     ],
     targets: [
+        .binaryTarget(
+            name: "vmnet_broker_binary",
+            path: "Frameworks/vmnet-broker.xcframework"
+        ),
+        .target(
+            name: "VmnetBroker",
+            dependencies: ["vmnet_broker_binary"],
+            path: "Sources/VmnetBroker",
+        ),
         .executableTarget(
             name: "test",
             dependencies: [
-                .product(name: "Logging", package: "swift-log")
+                "VmnetBroker",
+                .product(name: "Logging", package: "swift-log"),
             ],
-            swiftSettings: [
-                .unsafeFlags(["-I", "\(packageRoot)/.."])
-            ],
-            linkerSettings: [
-                .linkedLibrary("vmnet-broker"),
-                // for finding libvmnet-broker.a
-                .unsafeFlags(["-L\(packageRoot)/.."]),
-                .linkedFramework("Virtualization"),
-                .linkedFramework("vmnet"),
-            ]
-        )
+            path: "Sources/test",
+        ),
     ]
 )

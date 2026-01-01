@@ -1,4 +1,4 @@
-module vmnet_broker {
+module vmnet_broker_binary {
     header "vmnet-broker.h"
     export *
 }
