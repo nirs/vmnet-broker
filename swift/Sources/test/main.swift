@@ -22,7 +22,7 @@ private var dispatchSignalSources: [DispatchSourceSignal] = []
 setupLogging()
 
 guard CommandLine.arguments.count == 2 else {
-    logger.info("Usage: \(CommandLine.arguments[0]) <config.json>")
+    logger.info("Usage: \(CommandLine.arguments[0]) vm-name")
     exit(EX_USAGE)
 }
 
@@ -234,7 +234,11 @@ struct DiskConfig: Codable {
     let readonly: Bool
 }
 
-func loadVMConfig(_ path: String) -> VMConfig {
+func loadVMConfig(_ vmName: String) -> VMConfig {
+    let path = URL(fileURLWithPath: ".vms")
+        .appendingPathComponent(vmName)
+        .appendingPathComponent("config.json")
+        .path
     guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
         fatalError("Failed to read config file \(path)")
     }
