@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -28,7 +29,7 @@ func main() {
 
 func run() error {
 	if len(os.Args) != 2 {
-		return fmt.Errorf("Usage: %s <config.json>", os.Args[0])
+		return fmt.Errorf("Usage: %s vm-name", os.Args[0])
 	}
 	vmConfig, err := loadVMConfig(os.Args[1])
 	if err != nil {
@@ -296,14 +297,15 @@ type DiskConfig struct {
 	Readonly bool
 }
 
-func loadVMConfig(path string) (*VMConfig, error) {
+func loadVMConfig(vmName string) (*VMConfig, error) {
+	path := filepath.Join(".vms", vmName, "config.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config from '%s': %w", path, err)
 	}
 	config := &VMConfig{}
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config json: %w", err)
+		return nil, fmt.Errorf("failed to parse config from '%s': %w", path, err)
 	}
 	return config, nil
 }
