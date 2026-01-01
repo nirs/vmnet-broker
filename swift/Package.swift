@@ -5,7 +5,7 @@ import Foundation
 import PackageDescription
 
 let package = Package(
-    name: "VmnetBroker",
+    name: "vmnet-broker",
     platforms: [.macOS(.v26)],
     products: [
         .library(
