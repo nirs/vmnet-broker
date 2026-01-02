@@ -1,0 +1,7 @@
+words = [
+    "cgo",
+    "cidata",
+    "strerror",
+    "vmnet",
+    "xpc",
+]
