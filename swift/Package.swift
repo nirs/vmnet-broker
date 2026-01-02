@@ -18,13 +18,12 @@ let package = Package(
     ],
     targets: [
         .binaryTarget(
-            name: "vmnet_broker_binary",
+            name: "vmnet_broker",
             path: "Frameworks/vmnet-broker.xcframework"
         ),
         .target(
             name: "VmnetBroker",
-            dependencies: ["vmnet_broker_binary"],
-            path: "Sources/VmnetBroker",
+            dependencies: ["vmnet_broker"],
         ),
         .executableTarget(
             name: "test",
@@ -32,7 +31,6 @@ let package = Package(
                 "VmnetBroker",
                 .product(name: "Logging", package: "swift-log"),
             ],
-            path: "Sources/test",
         ),
     ]
 )

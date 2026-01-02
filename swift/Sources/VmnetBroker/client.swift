@@ -1,5 +1,5 @@
 import Foundation
-import vmnet_broker_binary
+import vmnet_broker
 
 public enum VmnetBrokerError: Int32, Error, LocalizedError {
     case xpcFailure = 1
