@@ -179,16 +179,22 @@ func createSerialPortConfiguration() -> VZSerialPortConfiguration {
 
 func createStorageDevice(_ cfg: DiskConfig) -> VZStorageDeviceConfiguration {
     let url = URL(fileURLWithPath: cfg.path, isDirectory: false)
-    guard let attachment = try? VZDiskImageStorageDeviceAttachment(url: url, readOnly: cfg.readonly)
-    else {
-        fatalError("Failed to create disk image from \(cfg.path)")
+
+    let attachment: VZDiskImageStorageDeviceAttachment
+    do {
+        attachment = try VZDiskImageStorageDeviceAttachment(url: url, readOnly: cfg.readonly)
+    } catch {
+        logger.error("Failed to create storage device attachment from \(url): \(error)")
+        exit(EXIT_FAILURE)
     }
+
     return VZVirtioBlockDeviceConfiguration(attachment: attachment)
 }
 
 func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceConfiguration {
     guard let macAddress = VZMACAddress(string: mac) else {
-        fatalError("Invalid MAC address: \(mac)")
+        logger.error("Invalid MAC address: \(mac)")
+        exit(EXIT_FAILURE)
     }
 
     let serialization: xpc_object_t
@@ -201,9 +207,10 @@ func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceCon
 
     var status: vmnet_return_t = vmnet_return_t.VMNET_SUCCESS
     guard let network = vmnet_network_create_with_serialization(serialization, &status) else {
-        fatalError("Failed to create network from serialization: \(status)")
+        logger.error("Failed to create network from serialization: \(status)")
+        exit(EXIT_FAILURE)
     }
-    // Unfortunately, Swift ARC doesn't release opaque pointer automatically.
+    // Swift ARC doesn't release opaque pointer automatically.
     defer {
         Unmanaged<AnyObject>.fromOpaque(UnsafeRawPointer(network)).release()
     }
@@ -240,11 +247,22 @@ func loadVMConfig(_ vmName: String) -> VMConfig {
         .appendingPathComponent(vmName)
         .appendingPathComponent("config.json")
         .path
-    guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
-        fatalError("Failed to read config file \(path)")
+
+    let data: Data
+    do {
+        data = try Data(contentsOf: URL(fileURLWithPath: path))
+    } catch {
+        logger.error("Failed to read config file at \(path): \(error)")
+        exit(EXIT_FAILURE)
     }
-    guard let config = try? JSONDecoder().decode(VMConfig.self, from: data) else {
-        fatalError("Failed to decode JSON from \(path)")
+
+    let config: VMConfig
+    do {
+        config = try JSONDecoder().decode(VMConfig.self, from: data)
+    } catch {
+        logger.error("Failed to parse JSON for \(vmName): \(error)")
+        exit(EXIT_FAILURE)
     }
+
     return config
 }
