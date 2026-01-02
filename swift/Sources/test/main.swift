@@ -33,7 +33,7 @@ configuration.cpuCount = vmConfig.cpus
 configuration.memorySize = vmConfig.memory * miB
 configuration.bootLoader = createBootLoader(vmConfig.bootloader)
 configuration.serialPorts = [createSerialPortConfiguration()]
-configuration.networkDevices = [try createNetworkDeviceConfiguration(vmConfig.mac)]
+configuration.networkDevices = [createNetworkDeviceConfiguration(vmConfig.mac)]
 configuration.storageDevices = [
     createStorageDevice(vmConfig.disks[0]),
     createStorageDevice(vmConfig.disks[1]),
@@ -186,12 +186,18 @@ func createStorageDevice(_ cfg: DiskConfig) -> VZStorageDeviceConfiguration {
     return VZVirtioBlockDeviceConfiguration(attachment: attachment)
 }
 
-func createNetworkDeviceConfiguration(_ mac: String) throws -> VZVirtioNetworkDeviceConfiguration {
+func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceConfiguration {
     guard let macAddress = VZMACAddress(string: mac) else {
         fatalError("Invalid MAC address: \(mac)")
     }
 
-    let serialization = try VmnetBroker.createNetwork(named: "default")
+    let serialization: xpc_object_t
+    do {
+        serialization = try VmnetBroker.createNetwork(named: "default")
+    } catch {
+        logger.error("Failed to get network from broker: \(error)")
+        exit(EXIT_FAILURE)
+    }
 
     var status: vmnet_return_t = vmnet_return_t.VMNET_SUCCESS
     guard let network = vmnet_network_create_with_serialization(serialization, &status) else {
