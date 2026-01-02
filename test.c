@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     setup_kq();
 
     vmnet_broker_return_t broker_status;
-    xpc_object_t serialization = vmnet_broker_start_session("default", &broker_status);
+    xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
     if (serialization == NULL) {
         ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);

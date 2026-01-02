@@ -31,9 +31,9 @@ public enum VmnetBrokerError: Int32, Error, LocalizedError {
 }
 
 public enum VmnetBroker {
-    public static func createNetwork(named: String) throws -> xpc_object_t {
+    public static func acquireNetwork(named: String) throws -> xpc_object_t {
         var status: Int32 = 0
-        guard let serialization = vmnet_broker_start_session(named, &status) else {
+        guard let serialization = vmnet_broker_acquire_network(named, &status) else {
             throw VmnetBrokerError(rawValue: status) ?? .internalError
         }
         return serialization

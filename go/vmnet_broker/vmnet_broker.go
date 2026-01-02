@@ -21,12 +21,12 @@ type Serialization struct {
 
 // StartSession initiates a session with the vmnet-broker.  It returns a
 // Serialization on success, or an error on failure.
-func StartSession(networkName string) (*Serialization, error) {
+func AcquireNetwork(networkName string) (*Serialization, error) {
 	cName := C.CString(networkName)
 	defer C.free(unsafe.Pointer(cName))
 
 	var status C.vmnet_broker_return_t
-	obj := C.vmnet_broker_start_session(cName, &status)
+	obj := C.vmnet_broker_acquire_network(cName, &status)
 	if obj == nil {
 		errMsg := C.GoString(C.vmnet_broker_strerror(status))
 		return nil, errors.New(errMsg)

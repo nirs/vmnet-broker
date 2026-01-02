@@ -6,11 +6,11 @@ import (
 	"github.com/nirs/vmnet-broker/go/vmnet_broker"
 )
 
-func TestStartSession(t *testing.T) {
+func TestAcquireNetwork(t *testing.T) {
 	// Note: These tests requires installation of the vmnet-broker launchd daemon.
 
 	t.Run("ValidNetwork", func(t *testing.T) {
-		s, err := vmnet_broker.StartSession("default")
+		s, err := vmnet_broker.AcquireNetwork("default")
 		if err != nil {
 			t.Fatalf("Expected success for 'default' network, got error: %v", err)
 		}
