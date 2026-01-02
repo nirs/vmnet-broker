@@ -204,7 +204,7 @@ static void handle_request(const struct context *ctx, xpc_object_t event) {
         send_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
         return;
     }
-    if (strcmp(command, COMMAND_GET) != 0) {
+    if (strcmp(command, COMMAND_ACQUIRE) != 0) {
         WARNF("[%s] invalid request: unknown command '%s'", ctx->name, command);
         send_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
         return;

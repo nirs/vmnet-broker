@@ -190,9 +190,9 @@ func createNetworkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDevice
 		return nil, err
 	}
 
-	serialization, err := vmnet_broker.StartSession("default")
+	serialization, err := vmnet_broker.AcquireNetwork("default")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get network serializaion from broker: %w", err)
+		return nil, fmt.Errorf("failed to acquire network: %w", err)
 	}
 
 	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())

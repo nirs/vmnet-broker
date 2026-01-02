@@ -12,7 +12,7 @@
 #define REQUEST_NETWORK_NAME "network_name"
 
 // Request commands.
-#define COMMAND_GET "get"
+#define COMMAND_ACQUIRE "acquire"
 
 // Reply keys
 #define REPLY_NETWORK "network"
@@ -48,29 +48,35 @@
 typedef int32_t vmnet_broker_return_t;
 
 /*!
- * @function vmnet_broker_start_session
+ * @function vmnet_broker_acquire_network
  *
  * @abstract
- * Start a session with the broker, returning serialization of the requested
- * network. Use `vmnet_create_network_with_serialization` to create a new
- * network.
+ * Acquires a shared lock on a configured network, instantiating it if
+ * necessary.
  *
- * The session is kept open during the lifetime of the process, ensuring that
- * the broker keeps the network alive while clients are using the network.
+ * @discussion
+ * The specified `network_name` must exist in the broker's configuration. This
+ * function retrieves a reference to the network if it already exists, or
+ * instantiates it if needed.
+ *
+ * The shared lock ensures the network remains active as long as the calling
+ * process is using it. The lock is automatically released when the process
+ * terminates.
  *
  * @param network_name
- * The network name.
+ * The name of the network as defined in the broker configuration.
  *
  * @param status
- * Optional output parameter, returns status.
+ * Optional output parameter. On return, contains the status of the operation.
  *
  * @result
- * Retained network serialization, NULL otherwise. `status` will contain the
- * error code. Use `xpc_release()` to release the serialization.
+ * A retained xpc_object_t serialization on success, or NULL on failure. The
+ * caller is responsible for releasing the returned object using
+ * `xpc_release()`.
  */
-xpc_object_t _Nullable vmnet_broker_start_session(
-    const char * _Nonnull network_name,
-    vmnet_broker_return_t * _Nullable status);
+xpc_object_t _Nullable
+vmnet_broker_acquire_network(const char * _Nonnull network_name,
+                             vmnet_broker_return_t * _Nullable status);
 
 /*!
  * @function vmnet_broker_strerror
@@ -84,6 +90,7 @@ xpc_object_t _Nullable vmnet_broker_start_session(
  * @result
  * Description of the status.
  */
-const char * _Nonnull vmnet_broker_strerror(vmnet_broker_return_t status);
+const char * _Nonnull
+vmnet_broker_strerror(vmnet_broker_return_t status);
 
 #endif // VMNET_BROKER_H
