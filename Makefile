@@ -7,6 +7,7 @@ install_dir := /Library/Application Support/vmnet-broker
 launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
+framework := swift/Frameworks/vmnet-broker.xcframework
 
 .PHONY: all clean test-swift test-go
 
@@ -20,7 +21,7 @@ test-c: test.c common.c common.h libvmnet-broker.a
 	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnet-broker test.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-swift: swift/Frameworks/vmnet-broker.xcframework
+test-swift: $(framework)
 	cd swift && swift build
 	ln -fs $(shell cd swift && swift build --show-bin-path)/test $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
@@ -29,7 +30,7 @@ test-go:
 	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-swift/Frameworks/vmnet-broker.xcframework: libvmnet-broker.a vmnet-broker.h module.modulemap
+$(framework): libvmnet-broker.a vmnet-broker.h module.modulemap
 	rm -rf "$@"
 	mkdir -p .headers
 	cp vmnet-broker.h module.modulemap .headers/
@@ -67,4 +68,4 @@ print:
 
 clean:
 	rm -f vmnet-broker test-c test-swift test-go *.o *.a
-	rm -rf swift/.build
+	rm -rf swift/.build "$(framework)"
