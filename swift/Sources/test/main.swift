@@ -22,7 +22,7 @@ private var dispatchSignalSources: [DispatchSourceSignal] = []
 setupLogging()
 
 guard CommandLine.arguments.count == 2 else {
-    logger.info("Usage: \(CommandLine.arguments[0]) vm-name")
+    logger.error("Usage: \(CommandLine.arguments[0]) vm-name")
     exit(EX_USAGE)
 }
 
