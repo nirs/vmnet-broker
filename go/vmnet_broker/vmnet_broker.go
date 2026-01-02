@@ -1,10 +1,11 @@
+//go:build darwin
+
 package vmnet_broker
 
 /*
-#cgo LDFLAGS: -L${SRCDIR}/../.. -lvmnet-broker
+#cgo CFLAGS: -I${SRCDIR}/../.. -Wall -O2
 #include "vmnet-broker.h"
 #include <stdlib.h>
-#include <xpc/xpc.h>
 */
 import "C"
 import (
