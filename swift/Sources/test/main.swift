@@ -42,7 +42,7 @@ configuration.storageDevices = [
 do {
     try configuration.validate()
 } catch {
-    logger.error("Failed to validate the virtual machine configuration. \(error)")
+    logger.error("Failed to validate virtual machine configuration. \(error)")
     exit(EXIT_FAILURE)
 }
 
@@ -55,7 +55,7 @@ setupShutdownSignals(virtualMachine)
 
 virtualMachine.start { (result) in
     if case .failure(let error) = result {
-        logger.error("Failed to start the virtual machine. \(error)")
+        logger.error("Failed to start virtual machine. \(error)")
         exit(EXIT_FAILURE)
     }
 }
