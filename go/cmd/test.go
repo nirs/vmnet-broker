@@ -258,14 +258,14 @@ func createStorageDeviceConfigurations(cfg *VMConfig) ([]vz.StorageDeviceConfigu
 }
 
 func createSerialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfiguration, error) {
-	attatchment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
+	attachment, err := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create serial port attachment: %w", err)
 	}
 
-	config, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(attatchment)
+	config, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(attachment)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create console device serial port configuartion: %w", err)
+		return nil, fmt.Errorf("failed to create console device serial port configuration: %w", err)
 	}
 
 	return []*vz.VirtioConsoleDeviceSerialPortConfiguration{config}, nil

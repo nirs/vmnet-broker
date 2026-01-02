@@ -34,7 +34,7 @@ static void start_interface_from_network(vmnet_network_ref network) {
     interface = vmnet_interface_start_with_network(
         network, desc, vmnet_queue, ^(vmnet_return_t status, xpc_object_t param){
         if (status != VMNET_SUCCESS) {
-            ERRORF("failed to start vment interface with network: (%d) %s", status, vmnet_strerror(status));
+            ERRORF("failed to start vmnet interface with network: (%d) %s", status, vmnet_strerror(status));
             exit(EXIT_FAILURE);
         }
 

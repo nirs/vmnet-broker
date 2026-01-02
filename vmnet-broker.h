@@ -29,10 +29,10 @@
 // Broker returned invalid reply.
 #define VMNET_BROKER_INVALID_REPLY 2
 
-// Broker rejected the request becasue the user is not allowed to get the network.
+// Broker rejected the request because the user is not allowed to get the network.
 #define VMNET_BROKER_NOT_ALLOWED 3
 
-// Broker rejected the request becasue the request was invalid.
+// Broker rejected the request because the request was invalid.
 #define VMNET_BROKER_INVALID_REQUEST 4
 
 // Broker did not find the requested network in the broker configuration.
@@ -44,7 +44,7 @@
 // Internal or unknown error.
 #define VMNET_BROKER_INTERNAL_ERROR 7
 
-// Match vment framework style.
+// Match vmnet framework style.
 typedef int32_t vmnet_broker_return_t;
 
 /*!
@@ -76,7 +76,7 @@ xpc_object_t _Nullable vmnet_broker_start_session(
  * @function vmnet_broker_strerror
  *
  * @abstract
- * Return desrption of the status returned from `vment_broker_start_session`.
+ * Return description of the status returned from `vmnet_broker_start_session`.
  *
  * @param status
  * Status returned by `vmnet_broker_start_session`
