@@ -20,32 +20,24 @@
 
 // Status codes
 
-// Session started.
-#define VMNET_BROKER_SUCCESS 0
-
-// Failed to send XPC message to broker.
-#define VMNET_BROKER_XPC_FAILURE 1
-
-// Broker returned invalid reply.
-#define VMNET_BROKER_INVALID_REPLY 2
-
-// Broker rejected the request because the user is not allowed to get the network.
-#define VMNET_BROKER_NOT_ALLOWED 3
-
-// Broker rejected the request because the request was invalid.
-#define VMNET_BROKER_INVALID_REQUEST 4
-
-// Broker did not find the requested network in the broker configuration.
-#define VMNET_BROKER_NOT_FOUND 5
-
-// Broker failed to create the requested network.
-#define VMNET_BROKER_CREATE_FAILURE 6
-
-// Internal or unknown error.
-#define VMNET_BROKER_INTERNAL_ERROR 7
-
-// Match vmnet framework style.
-typedef int32_t vmnet_broker_return_t;
+typedef enum {
+    // Operation was successful.
+    VMNET_BROKER_SUCCESS = 0,
+    // Failed to send XPC message to broker.
+    VMNET_BROKER_XPC_FAILURE = 1,
+    // Broker returned invalid reply.
+    VMNET_BROKER_INVALID_REPLY = 2,
+    // Broker rejected the request because the user is not allowed to get the network.
+    VMNET_BROKER_NOT_ALLOWED = 3,
+    // Broker rejected the request because the request was invalid.
+    VMNET_BROKER_INVALID_REQUEST = 4,
+    // Broker did not find the requested network in the broker configuration.
+    VMNET_BROKER_NOT_FOUND = 5,
+    // Broker failed to create the requested network.
+    VMNET_BROKER_CREATE_FAILURE = 6,
+    // Internal or unknown error.
+    VMNET_BROKER_INTERNAL_ERROR = 7
+} vmnet_broker_return_t;
 
 /*!
  * @function vmnet_broker_acquire_network
