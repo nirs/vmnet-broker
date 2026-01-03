@@ -12,11 +12,11 @@ service_name := com.github.nirs.vmnet-broker
 
 all: vmnet-broker test-c test-swift test-go
 
-vmnet-broker: broker.c common.c common.h vmnet-broker.h
+vmnet-broker: broker.c common.c common.h vmnet-broker.h log.h
 	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-c: test.c client.c common.c client.c common.h vmnet-broker.h
+test-c: test.c client.c common.c client.c common.h vmnet-broker.h log.h
 	$(CC) $(CFLAGS) $(LDFLAGS) test.c client.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
