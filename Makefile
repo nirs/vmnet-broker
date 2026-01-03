@@ -53,4 +53,5 @@ print:
 
 clean:
 	rm -f vmnet-broker test-c test-swift test-go
-	rm -rf swift/.build
+	cd swift && swift package clean
+	cd go && go clean
