@@ -25,6 +25,10 @@ let package = Package(
             name: "VmnetBroker",
             dependencies: ["vmnet_broker"],
         ),
+        .testTarget(
+            name: "VmnetBrokerTests",
+            dependencies: ["VmnetBroker", "vmnet_broker"],
+        ),
         .executableTarget(
             name: "test",
             dependencies: [
