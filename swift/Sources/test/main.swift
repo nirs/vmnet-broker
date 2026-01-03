@@ -205,7 +205,7 @@ func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceCon
         exit(EXIT_FAILURE)
     }
 
-    var status: vmnet_return_t = vmnet_return_t.VMNET_SUCCESS
+    var status: vmnet_return_t = .VMNET_SUCCESS
     guard let network = vmnet_network_create_with_serialization(serialization, &status) else {
         logger.error("Failed to create network from serialization: \(status)")
         exit(EXIT_FAILURE)

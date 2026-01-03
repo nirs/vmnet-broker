@@ -1,6 +1,29 @@
 import Testing
 import VmnetBroker
+import vmnet
 import vmnet_broker
+
+/// Test install vmnet-broker (require installing the vmnet-broker launchd daemon).
+@Suite("VmnetBroker validation")
+struct VmnetBrokerTests {
+
+    /// Test acquiring a valid network
+    @Test
+    func validNetwork() throws {
+        let serialization = try VmnetBroker.acquireNetwork(named: "default")
+
+        var status: vmnet_return_t = .VMNET_SUCCESS
+        let network = vmnet_network_create_with_serialization(serialization, &status)
+
+        #expect(
+            network != nil && status == .VMNET_SUCCESS,
+            "Failed to create network with status: \(status)")
+
+        if let network = network {
+            Unmanaged<AnyObject>.fromOpaque(UnsafeRawPointer(network)).release()
+        }
+    }
+}
 
 @Suite("VmnetBroker.Error validation")
 struct VmnetBrokerErrorTests {
