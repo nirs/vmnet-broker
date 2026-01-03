@@ -1,7 +1,6 @@
 #ifndef VMNET_BROKER_H
 #define VMNET_BROKER_H
 
-#include <stdint.h>
 #include <xpc/xpc.h>
 
 // The broker Mach service name.
