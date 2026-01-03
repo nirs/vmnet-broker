@@ -1,6 +1,9 @@
 words = [
     "cgo",
     "cidata",
+    "cloudimg",
+    "hvc",
+    "rootfs",
     "strerror",
     "vmnet",
     "xpc",

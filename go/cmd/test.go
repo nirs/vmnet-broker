@@ -77,8 +77,8 @@ func run() error {
 		return fmt.Errorf("failed to create virtual machine: %w", err)
 	}
 
-	if err := swithTerminalToRawMode(); err != nil {
-		return fmt.Errorf("failed to swith terminal to raw mode: %w", err)
+	if err := switchTerminalToRawMode(); err != nil {
+		return fmt.Errorf("failed to switch terminal to raw mode: %w", err)
 	}
 	defer restoreTerminalMode()
 
@@ -103,7 +103,7 @@ func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 	for {
 		select {
 		case sig := <-signalCh:
-			log.Printf("recieved signal %v", sig)
+			log.Printf("received signal %v", sig)
 			shutdownGracefully(vm)
 			return
 		case newState := <-vm.StateChangedNotify():
@@ -116,7 +116,7 @@ func waitForTermination(vm *vz.VirtualMachine, signalCh <-chan os.Signal) {
 }
 
 func shutdownGracefully(vm *vz.VirtualMachine) {
-	log.Printf("Stopping guest gracefuly")
+	log.Printf("Stopping guest gracefully")
 	if result, err := vm.RequestStop(); !result || err != nil {
 		reason := "The guest cannot stop gracefully"
 		if err != nil {
@@ -154,7 +154,7 @@ func hardStop(vm *vz.VirtualMachine, reason string) {
 
 var originalTerminalAttr unix.Termios
 
-func swithTerminalToRawMode() error {
+func switchTerminalToRawMode() error {
 	fd := os.Stdin.Fd()
 	if err := termios.Tcgetattr(fd, &originalTerminalAttr); err != nil {
 		return err
