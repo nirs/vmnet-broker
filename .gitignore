@@ -1,6 +1,4 @@
 # Products
-/*.a
-/*.o
 /test-c
 /test-go
 /test-swift
@@ -9,7 +7,6 @@
 # Swift
 /swift/.build/
 /swift/Package.resolved
-/swift/Frameworks/
 
 # Go
 /go/test

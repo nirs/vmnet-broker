@@ -7,7 +7,6 @@ install_dir := /Library/Application Support/vmnet-broker
 launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
-framework := swift/Frameworks/vmnet-broker.xcframework
 
 .PHONY: all clean test-swift test-go
 
@@ -17,11 +16,11 @@ vmnet-broker: broker.c common.c common.h vmnet-broker.h
 	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-c: test.c common.c common.h libvmnet-broker.a
-	$(CC) $(CFLAGS) $(LDFLAGS) -L. -lvmnet-broker test.c common.c -o $@
+test-c: test.c client.c common.c client.c common.h vmnet-broker.h
+	$(CC) $(CFLAGS) $(LDFLAGS) test.c client.c common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-swift: $(framework)
+test-swift:
 	cd swift && swift build
 	ln -fs $(shell cd swift && swift build --show-bin-path)/test $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
@@ -29,20 +28,6 @@ test-swift: $(framework)
 test-go:
 	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
-
-$(framework): libvmnet-broker.a vmnet-broker.h module.modulemap
-	rm -rf "$@"
-	mkdir -p .headers
-	cp vmnet-broker.h module.modulemap .headers/
-	xcodebuild -create-xcframework \
-		-library libvmnet-broker.a \
-		-headers .headers \
-		-output "$@"
-	rm -rf .headers
-
-libvmnet-broker.a: client.c vmnet-broker.h
-	$(CC) $(CFLAGS) -c client.c
-	$(AR) rcs $@ client.o
 
 install:
 	sudo mkdir -p "$(install_dir)"
@@ -67,5 +52,5 @@ print:
 	sudo launchctl print system/$(service_name)
 
 clean:
-	rm -f vmnet-broker test-c test-swift test-go *.o *.a
-	rm -rf swift/.build "$(framework)"
+	rm -f vmnet-broker test-c test-swift test-go
+	rm -rf swift/.build

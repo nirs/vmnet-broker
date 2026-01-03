@@ -14,12 +14,12 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
     ],
     targets: [
-        .binaryTarget(
+        .target(
             name: "vmnet_broker",
-            path: "Frameworks/vmnet-broker.xcframework"
         ),
         .target(
             name: "VmnetBroker",
