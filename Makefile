@@ -8,9 +8,13 @@ launchd_dir := /Library/LaunchDaemons
 log_dir := /Library/Logs/vmnet-broker
 service_name := com.github.nirs.vmnet-broker
 
-.PHONY: all clean test-swift test-go
+.PHONY: all test clean test-swift test-go
 
 all: vmnet-broker test-c test-swift test-go
+
+test: test-swift test-go
+	cd go && go test -v ./vmnet_broker
+	cd swift && swift test
 
 vmnet-broker: broker.c common.c common.h vmnet-broker.h log.h
 	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
