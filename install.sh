@@ -118,6 +118,7 @@ fi
 debug "Installing broker in $install_dir"
 run mkdir -p "$install_dir"
 run install vmnet-broker "$install_dir"
+run install uninstall.sh "$install_dir"
 run chown -R root:wheel "$install_dir"
 info "Installed broker in $install_dir"
 
