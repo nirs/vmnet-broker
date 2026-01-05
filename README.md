@@ -41,6 +41,37 @@ client, so both clients are using the same vmnet network.
 When the last client disconnects from the service, the vmnet network is
 released, and the kernel resources are destroyed.
 
+## Installing
+
+Run `make install`:
+
+```console
+% make install
+sudo ./install.sh
+▫️  Created system group _vmnetbroker
+▫️  Created system user _vmnetbroker
+▫️  Installed broker in /Library/Application Support/vmnet-broker
+▫️  Created log directory /Library/Logs/vmnet-broker
+▫️  Installed service /Library/LaunchDaemons/com.github.nirs.vmnet-broker.plist
+▫️  Bootstrapped service com.github.nirs.vmnet-broker
+✅ Install completed
+```
+
+## Uninstalling
+
+Run `make uninstall`:
+
+```console
+% make uninstall
+sudo ./uninstall.sh
+▫️  Booted out service com.github.nirs.vmnet-broker
+▫️  Deleted /Library/Application Support/vmnet-broker
+▫️  Deleted /Library/Logs/vmnet-broker
+▫️  Deleted system group _vmnetbroker
+▫️  Deleted system user _vmnetbroker
+✅ Uninstall completed
+```
+
 ## Using with vfkit
 
 To start a virtual machine using vfkit use the `vmnet` virtio-net device:
