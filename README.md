@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: The vmnet-broker authors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # vmnet-broker
 
 The vmnet-broker manages shared vmnet networks for applications using

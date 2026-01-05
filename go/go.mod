@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The vmnet-broker authors
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/nirs/vmnet-broker/go
 
 go 1.24.0
