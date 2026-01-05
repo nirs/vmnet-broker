@@ -1,0 +1,14 @@
+{
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "[swift]": {
+    "files.trimTrailingWhitespace": true
+  },
+  "[c]": {
+    "files.trimTrailingWhitespace": true
+  },
+  "[go]": {
+    "files.trimTrailingWhitespace": true
+  }
+}
