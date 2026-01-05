@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The vmnet-broker authors
+// SPDX-License-Identifier: Apache-2.0
+
 #include <CoreFoundation/CFBase.h>
 #include <arpa/inet.h>
 #include <dispatch/dispatch.h>

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The vmnet-broker authors
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build darwin
 
 // package vmnet_broker interacts with the vmnet-broker service.

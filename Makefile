@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: The vmnet-broker authors
+# SPDX-License-Identifier: Apache-2.0
+
 CC = clang
 CFLAGS = -Wall -O2
 LDFLAGS = -framework CoreFoundation -framework vmnet

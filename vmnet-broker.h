@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The vmnet-broker authors
+// SPDX-License-Identifier: Apache-2.0
+
 #ifndef VMNET_BROKER_H
 #define VMNET_BROKER_H
 
