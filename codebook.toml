@@ -1,10 +1,13 @@
 words = [
+    "bootout",
     "cgo",
     "cidata",
     "cloudimg",
+    "exitcode",
     "hvc",
     "rootfs",
     "strerror",
     "vmnet",
+    "vmnetbroker",
     "xpc",
 ]
