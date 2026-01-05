@@ -217,3 +217,6 @@ The virtual machine will use the "default" network defined in the broker
 configuration.  If you start multiple instances they will use the same network
 and can communicate.
 
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
