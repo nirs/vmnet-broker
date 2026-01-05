@@ -118,13 +118,12 @@ fi
 debug "Installing broker in $install_dir"
 run mkdir -p "$install_dir"
 run install vmnet-broker "$install_dir"
-run chown root:wheel "$install_dir"
-run chown root:wheel "$install_dir/vmnet-broker"
+run chown -R root:wheel "$install_dir"
 info "Installed broker in $install_dir"
 
 debug "Creating log directory $log_dir"
 run mkdir -p "$log_dir"
-run chown $user_name:$user_name "$log_dir"
+run chown -R $user_name:$user_name "$log_dir"
 run chmod 0755 "$log_dir"
 info "Created log directory $log_dir"
 
