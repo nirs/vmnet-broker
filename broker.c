@@ -16,6 +16,30 @@ struct context {
     xpc_connection_t connection;
 };
 
+// Network configuration.
+struct network_config {
+    const char *name;
+
+    // VMNET_SHARED_MODE | VMNET_HOST_MODE
+    vmnet_mode_t mode;
+
+    // IPv4 subnet: a /24 under 192.168/16
+    const char *subnet;
+    const char *mask;
+
+    // TODO: Add rest of options:
+    // - External interface: default interface per the routing table
+    // - NAT44: enabled
+    // - NAT66: enabled
+    // - DHCP: enabled
+    // - DNS proxy: enabled
+    // - Router advertisement: enabled
+    // - IPv6 prefix: random ULA prefix
+    // - Port forwarding rule: none
+    // - DHCP reservation: none
+    // - MTU: 1500
+};
+
 // Shared network used by one of more clients.
 // TODO: Keep reference count.
 struct network {
@@ -25,9 +49,16 @@ struct network {
 
 bool verbose = true;
 
-// Temporary hard-coded configuration.
-static const char *config_subnet = "192.168.42.1";
-static const char *config_mask = "255.255.255.0";
+static const struct network_config builtin_networks[] = {
+    {
+        .name = "shared",
+        .mode = VMNET_SHARED_MODE,
+    },
+    {
+        .name = "host",
+        .mode = VMNET_HOST_MODE,
+    },
+};
 
 // The context used for main() and signal handlers.
 static const struct context main_context = { .name = "main" };
@@ -73,44 +104,64 @@ static void free_network(const struct context *ctx, struct network *network) {
     }
 }
 
-static vmnet_network_configuration_ref network_config(const struct context *ctx) {
+static vmnet_network_configuration_ref create_network_configuration(
+    const struct context *ctx,
+    const struct network_config *network_config
+) {
     vmnet_return_t status;
-
-    // TODO: Use mode from broker network configuration.
-    vmnet_network_configuration_ref config = vmnet_network_configuration_create(VMNET_SHARED_MODE, &status);
-    if (config == NULL) {
-        WARNF("[%s] failed to create network configuration: (%d) %s", ctx->name, status, vmnet_strerror(status));
+    vmnet_network_configuration_ref configuration = vmnet_network_configuration_create(
+        network_config->mode, &status);
+    if (configuration == NULL) {
+        WARNF("[%s] failed to create network configuration: (%d) %s",
+            ctx->name, status, vmnet_strerror(status));
         return NULL;
     }
 
-    // TODO: Add configuration options from broker network config.
+    // When subnet and mask are NULL, vmnet allocates both dynamically.
+    // This is the most reliable way to avoid conflicts with other programs
+    // allocating the same network, and to prevent orphaned networks if the
+    // broker is killed while VMs are using the network.
+    // TODO: Investigate if vmnet supports partial allocation (e.g., set subnet
+    // and let vmnet allocate mask, or vice versa). This would allow more
+    // flexible network configuration.
 
-    struct in_addr subnet_addr;
-    if (inet_pton(AF_INET, config_subnet, &subnet_addr) == 0) {
-        WARNF("[%s] failed to parse subnet '%s': %s", ctx->name, config_subnet, strerror(errno));
-        goto error;
+    if (network_config->subnet && network_config->mask) {
+        struct in_addr subnet_addr;
+        if (inet_pton(AF_INET, network_config->subnet, &subnet_addr) == 0) {
+            WARNF("[%s] failed to parse subnet '%s': %s",
+                ctx->name, network_config->subnet, strerror(errno));
+            goto error;
+        }
+
+        struct in_addr subnet_mask;
+        if (inet_pton(AF_INET, network_config->mask, &subnet_mask) == 0) {
+            WARNF("[%s] failed to parse mask '%s': %s",
+                ctx->name, network_config->mask, strerror(errno));
+            goto error;
+        }
+
+        status = vmnet_network_configuration_set_ipv4_subnet(
+            configuration, &subnet_addr, &subnet_mask);
+        if (status != VMNET_SUCCESS) {
+            WARNF("[%s] failed to set ipv4 subnet: (%d) %s",
+                ctx->name, status, vmnet_strerror(status));
+            goto error;
+        }
     }
 
-    struct in_addr subnet_mask;
-    if (inet_pton(AF_INET, config_mask, &subnet_mask) == 0) {
-        WARNF("[%s] failed to parse mask '%s': %s", ctx->name, config_mask, strerror(errno));
-        goto error;
-    }
+    // TODO: set rest of options.
 
-    status = vmnet_network_configuration_set_ipv4_subnet(config, &subnet_addr, &subnet_mask);
-    if (status != VMNET_SUCCESS) {
-        WARNF("[%s] failed to set ipv4 subnet: (%d) %s", ctx->name, status, vmnet_strerror(status));
-        goto error;
-    }
-
-    return config;
+    return configuration;
 
 error:
-    CFRelease(config);
+    CFRelease(configuration);
     return NULL;
 }
 
-static struct network *create_network(const struct context *ctx) {
+static struct network *create_network(
+    const struct context *ctx,
+    const struct network_config *config
+) {
     vmnet_return_t status;
 
     struct network *network = calloc(1, sizeof(*network));
@@ -119,12 +170,12 @@ static struct network *create_network(const struct context *ctx) {
         return NULL;
     }
 
-    vmnet_network_configuration_ref config = network_config(ctx);
-    if (config == NULL) {
+    vmnet_network_configuration_ref configuration = create_network_configuration(ctx, config);
+    if (configuration == NULL) {
         goto error;
     }
 
-    network->ref = vmnet_network_create(config, &status);
+    network->ref = vmnet_network_create(configuration, &status);
     if (network->ref == NULL) {
         WARNF("[%s] failed to create network ref: (%d) %s", ctx->name, status, vmnet_strerror(status));
         goto error;
@@ -144,8 +195,8 @@ static struct network *create_network(const struct context *ctx) {
     return network;
 
 error:
-    if (config) {
-        CFRelease(config);
+    if (configuration) {
+        CFRelease(configuration);
     }
     free_network(ctx, network);
     return NULL;
@@ -195,7 +246,8 @@ static void send_network(const struct context *ctx, xpc_object_t event, struct n
 // TODO: Accept network name.
 static struct network *get_network(const struct context *ctx) {
     if (shared_network == NULL) {
-        shared_network = create_network(ctx);
+        // TODO: lookup network by name.
+        shared_network = create_network(ctx, &builtin_networks[0]);
     }
     return shared_network;
 }
