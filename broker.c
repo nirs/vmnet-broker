@@ -35,7 +35,7 @@ static const struct context main_context = { .name = "main" };
 // Time to wait in seconds before shutting down after the broker became idle. We
 // want to keep the network reservation in case a user want to use the same
 // network soon.
-// TODO: Read from user perferences.
+// TODO: Read from user preferences.
 static const int idle_timeout_sec = 30;
 
 // Accepting XPC connections.
@@ -45,7 +45,7 @@ static xpc_connection_t listener;
 // network. Automatically released by shutting down after idle timeout.
 static struct network *shared_network;
 
-// Number of conected peers, used to prevent termination when peers are
+// Number of connected peers, used to prevent termination when peers are
 // connected. Using signed int to make it easy to detect incorrect counting.
 static int connected_peers;
 
