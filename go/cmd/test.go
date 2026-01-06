@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/Code-Hex/vz/v3"
-	"github.com/Code-Hex/vz/v3/pkg/vmnet"
+	"github.com/Code-Hex/vz/v3/vmnet"
+	"github.com/Code-Hex/vz/v3/xpc"
 	"github.com/pkg/term/termios"
 	"golang.org/x/sys/unix"
 
@@ -198,7 +199,8 @@ func createNetworkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDevice
 		return nil, fmt.Errorf("failed to acquire network: %w", err)
 	}
 
-	network, err := vmnet.NewNetworkWithSerialization(serialization.Raw())
+	obj := xpc.NewObject(serialization.Raw())
+	network, err := vmnet.NewNetworkWithSerialization(obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create network from serialization: %w", err)
 	}
