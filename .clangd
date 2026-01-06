@@ -1,0 +1,17 @@
+CompileFlags:
+  Add: [-Wall]
+---
+If:
+  PathMatch: ^(broker|client|test|lib)/.*
+CompileFlags:
+  Add: [-I../include]
+---
+If:
+  PathMatch: swift/Sources/vmnet_broker/.*
+CompileFlags:
+  Add: [-Iinclude]
+---
+If:
+  PathMatch: go/vmnet_broker/.*
+CompileFlags:
+  Add: [-I../../include]

@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 CC = clang
-CFLAGS = -Wall -O2
+CFLAGS = -Wall -O2 -Iinclude
 LDFLAGS = -framework CoreFoundation -framework vmnet
+
+headers := $(shell find include -name '*.h')
 
 .PHONY: all test install uninstall clean test-swift test-go
 
@@ -13,12 +15,12 @@ test: test-swift test-go
 	cd go && go test -v ./vmnet_broker
 	cd swift && swift test
 
-vmnet-broker: broker.c common.c common.h vmnet-broker.h log.h
-	$(CC) $(CFLAGS) $(LDFLAGS) broker.c common.c -o $@
+vmnet-broker: broker/broker.c lib/common.c $(headers)
+	$(CC) $(CFLAGS) $(LDFLAGS) broker/broker.c lib/common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-c: test.c client.c common.c client.c common.h vmnet-broker.h log.h
-	$(CC) $(CFLAGS) $(LDFLAGS) test.c client.c common.c -o $@
+test-c: test/test.c client/client.c lib/common.c $(headers)
+	$(CC) $(CFLAGS) $(LDFLAGS) test/test.c client/client.c lib/common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 test-swift:
