@@ -6,6 +6,7 @@
 /test-go
 /test-swift
 /vmnet-broker
+/build/
 
 # Swift
 /swift/.build/
