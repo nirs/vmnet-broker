@@ -35,9 +35,9 @@ static void start_interface_from_network(vmnet_network_ref network) {
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
 
     interface = vmnet_interface_start_with_network(
-        network, desc, vmnet_queue, ^(vmnet_return_t status, xpc_object_t param){
-        if (status != VMNET_SUCCESS) {
-            ERRORF("failed to start vmnet interface with network: (%d) %s", status, vmnet_strerror(status));
+        network, desc, vmnet_queue, ^(vmnet_return_t start_status, xpc_object_t param){
+        if (start_status != VMNET_SUCCESS) {
+            ERRORF("failed to start vmnet interface with network: (%d) %s", start_status, vmnet_strerror(start_status));
             exit(EXIT_FAILURE);
         }
 
@@ -77,17 +77,17 @@ static void stop_interface(void)
     INFO("stopping vmnet interface");
 
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
-    vmnet_return_t status = vmnet_stop_interface(
-        interface, vmnet_queue, ^(vmnet_return_t status){
-        if (status != VMNET_SUCCESS) {
-            ERRORF("failed to stop vmnet interface: (%d) %s", status, vmnet_strerror(status));
+    vmnet_return_t vmnet_status = vmnet_stop_interface(
+        interface, vmnet_queue, ^(vmnet_return_t stop_status){
+        if (stop_status != VMNET_SUCCESS) {
+            ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
             exit(EXIT_FAILURE);
         }
         dispatch_semaphore_signal(completed);
     });
 
-    if (status != VMNET_SUCCESS) {
-        ERRORF("failed to stop vment interface: (%d) %s", status, vmnet_strerror(status));
+    if (vmnet_status != VMNET_SUCCESS) {
+        ERRORF("failed to stop vment interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
         exit(EXIT_FAILURE);
     }
 
@@ -167,12 +167,12 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    vmnet_return_t status;
-    vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &status);
+    vmnet_return_t vmnet_status;
+    vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
     xpc_release(serialization);
 
     if (network == NULL) {
-        ERRORF("failed to create network from serialization: (%d) %s", status, vmnet_strerror(status));
+        ERRORF("failed to create network from serialization: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
         exit(EXIT_FAILURE);
     }
 
