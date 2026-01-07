@@ -14,7 +14,7 @@
 bool verbose = true;
 
 // The context used for main() and signal handlers.
-static const struct broker_context main_context = { .name = "main" };
+const struct broker_context main_context = { .name = "main" };
 
 // Time to wait in seconds before shutting down after the broker became idle. We
 // want to keep the network reservation in case a user want to use the same
