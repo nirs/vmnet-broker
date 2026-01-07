@@ -16,6 +16,15 @@
 
 bool verbose = true;
 
+#define NANOSECONDS_PER_SECOND 1000000000ULL
+
+static uint64_t gettime(void) {
+    struct timespec ts;
+    // CLOCK_UPTIME_RAW: monotonic clock that increments even while system is asleep
+    clock_gettime(CLOCK_UPTIME_RAW, &ts);
+    return (uint64_t)ts.tv_sec * NANOSECONDS_PER_SECOND + ts.tv_nsec;
+}
+
 // Client starts a vmnet interface using the network returned by the broker.
 static interface_ref interface;
 
@@ -171,14 +180,21 @@ int main(int argc, char *argv[]) {
 
     setup_kq();
 
+    uint64_t start_time = gettime();
     vmnet_broker_return_t broker_status;
     xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
+    uint64_t end_time = gettime();
+
     if (serialization == NULL) {
         ERRORF("failed to start broker session: (%d) %s",
             broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);
     }
-    INFOF("acquired network from broker: status=%d (%s)", broker_status, vmnet_broker_strerror(broker_status));
+
+    uint64_t elapsed_nanos = end_time - start_time;
+    double elapsed_seconds = (double)elapsed_nanos / NANOSECONDS_PER_SECOND;
+    INFOF("acquired network from broker: status=%d (%s) in %.6f s",
+        broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
 
     vmnet_return_t vmnet_status;
     vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
