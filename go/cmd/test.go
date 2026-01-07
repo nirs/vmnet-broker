@@ -277,11 +277,36 @@ func createSerialPortConfigurations() ([]*vz.VirtioConsoleDeviceSerialPortConfig
 }
 
 func createBootLoader(cfg *VMConfig) (vz.BootLoader, error) {
-	return vz.NewLinuxBootLoader(
-		cfg.Bootloader.Kernel,
-		vz.WithInitrd(cfg.Bootloader.Initrd),
-		vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
-	)
+	switch cfg.Bootloader.Type {
+	case "linux", "":
+		if cfg.Bootloader.Kernel == "" || cfg.Bootloader.Initrd == "" {
+			return nil, fmt.Errorf("Linux bootloader requires 'kernel' and 'initrd' fields in config.json")
+		}
+		return vz.NewLinuxBootLoader(
+			cfg.Bootloader.Kernel,
+			vz.WithInitrd(cfg.Bootloader.Initrd),
+			vz.WithCommandLine("console=hvc0 root=LABEL=cloudimg-rootfs"),
+		)
+
+	case "efi":
+		if cfg.Bootloader.VariableStore == "" {
+			return nil, fmt.Errorf("EFI bootloader requires 'variable-store' field in config.json")
+		}
+		var variableStore *vz.EFIVariableStore
+		var err error
+		if _, statErr := os.Stat(cfg.Bootloader.VariableStore); statErr == nil {
+			variableStore, err = vz.NewEFIVariableStore(cfg.Bootloader.VariableStore)
+		} else {
+			variableStore, err = vz.NewEFIVariableStore(cfg.Bootloader.VariableStore, vz.WithCreatingEFIVariableStore())
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create EFI variable store: %w", err)
+		}
+		return vz.NewEFIBootLoader(vz.WithEFIVariableStore(variableStore))
+
+	default:
+		return nil, fmt.Errorf("unknown bootloader type '%s' (must be 'linux' or 'efi')", cfg.Bootloader.Type)
+	}
 }
 
 type VMConfig struct {
@@ -293,8 +318,14 @@ type VMConfig struct {
 }
 
 type BootloaderConfig struct {
-	Kernel string
-	Initrd string
+	Type string `json:"type,omitempty"` // Defaults to "linux"
+
+	// type: "linux"
+	Kernel string `json:"kernel,omitempty"`
+	Initrd string `json:"initrd,omitempty"`
+
+	// type: "efi"
+	VariableStore string `json:"variable-store,omitempty"`
 }
 
 type DiskConfig struct {
