@@ -15,8 +15,8 @@ test: test-swift test-go
 	cd go && go test -v ./vmnet_broker
 	cd swift && swift test
 
-vmnet-broker: broker/broker.c lib/common.c $(headers)
-	$(CC) $(CFLAGS) $(LDFLAGS) broker/broker.c lib/common.c -o $@
+vmnet-broker: broker/broker.c broker/xpc.c lib/common.c $(headers)
+	$(CC) $(CFLAGS) $(LDFLAGS) broker/broker.c broker/xpc.c lib/common.c -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 test-c: test/test.c client/client.c lib/common.c $(headers)
