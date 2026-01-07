@@ -5,7 +5,9 @@ CC = clang
 CFLAGS = -Wall -Wextra -O2 -Iinclude
 LDFLAGS = -framework CoreFoundation -framework vmnet
 
-headers := $(shell find include -name '*.h')
+headers = $(wildcard include/*.h)
+broker_sources = $(wildcard broker/*.c) lib/common.c
+test_sources = test/test.c client/client.c lib/common.c
 
 .PHONY: all test install uninstall clean test-swift test-go
 
@@ -15,12 +17,12 @@ test: test-swift test-go
 	cd go && go test -v ./vmnet_broker
 	cd swift && swift test
 
-vmnet-broker: broker/broker.c broker/xpc.c broker/network.c lib/common.c $(headers)
-	$(CC) $(CFLAGS) $(LDFLAGS) broker/broker.c broker/xpc.c broker/network.c lib/common.c -o $@
+vmnet-broker: $(broker_sources) $(headers)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(broker_sources) -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-test-c: test/test.c client/client.c lib/common.c $(headers)
-	$(CC) $(CFLAGS) $(LDFLAGS) test/test.c client/client.c lib/common.c -o $@
+test-c: $(test_sources) $(headers)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(test_sources) -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 test-swift:
