@@ -101,14 +101,26 @@ EOF
 }
 
 create_config_json() {
-    cat <<EOF > "$VM_DIR/config.json"
+    cat <<EOF > "${VM_DIR}/config.json"
 {
   "cpus": 1,
   "memory": 1024,
   "mac": "${MAC_ADDRESS}",
   "bootloader": {
+EOF
+    if [ "$BOOTLOADER" = "linux" ]; then
+        cat <<EOF >> "${VM_DIR}/config.json"
+    "type": "linux",
     "kernel": "${VM_DIR}/kernel",
     "initrd": "${VM_DIR}/initrd"
+EOF
+    elif [ "$BOOTLOADER" = "efi" ]; then
+        cat <<EOF >> "${VM_DIR}/config.json"
+    "type": "efi",
+    "variable-store": "${VM_DIR}/efi_vars.fd"
+EOF
+    fi
+    cat <<EOF >> "${VM_DIR}/config.json"
   },
   "disks": [
     {
@@ -124,12 +136,48 @@ create_config_json() {
 EOF
 }
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: create-vm vm-name"
-    exit 1
+usage() {
+  echo "Usage: create-vm [--bootloader=linux|efi] vm-name"
+  exit 1
+}
+
+BOOTLOADER="linux"
+VM_NAME=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --bootloader)
+            BOOTLOADER="$2"
+            shift 2
+            ;;
+        --bootloader=*)
+            BOOTLOADER="${1#*=}"
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            ;;
+        *)
+            if [ -z "$VM_NAME" ]; then
+                VM_NAME="$1"
+            else
+                echo "Error: Multiple VM names specified"
+                usage
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [ "$BOOTLOADER" != "efi" ] && [ "$BOOTLOADER" != "linux" ]; then
+    usage
 fi
 
-VM_NAME="$1"
+if [ -z "$VM_NAME" ]; then
+    usage
+fi
+
 VM_DIR="$VMS_DIR/${VM_NAME}"
 
 if [ -d "$VM_DIR" ]; then
@@ -144,14 +192,19 @@ mkdir -p "$CACHE_DIR"
 mkdir -p "$VM_DIR"
 
 download_image "$IMAGE_URL" disk.img
-download_kernel "$KERNEL_URL" kernel
-download_initrd "$INITRD_URL" initrd
+
+if [ "$BOOTLOADER" = "linux" ]; then
+    download_kernel "$KERNEL_URL" kernel
+    download_initrd "$INITRD_URL" initrd
+fi
 
 echo "Creating VM directory..."
 
 cp -c "$CACHE_DIR/disk.img" "$VM_DIR/disk.img"
-cp -c "$CACHE_DIR/kernel" "$VM_DIR/kernel"
-cp -c "$CACHE_DIR/initrd" "$VM_DIR/initrd"
+if [ "$BOOTLOADER" = "linux" ]; then
+    cp -c "$CACHE_DIR/kernel" "$VM_DIR/kernel"
+    cp -c "$CACHE_DIR/initrd" "$VM_DIR/initrd"
+fi
 
 create_cloud_init_iso
 create_config_json
