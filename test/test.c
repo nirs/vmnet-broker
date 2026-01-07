@@ -174,7 +174,8 @@ int main(int argc, char *argv[]) {
     vmnet_broker_return_t broker_status;
     xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
     if (serialization == NULL) {
-        ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
+        ERRORF("failed to start broker session: (%d) %s",
+            broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);
     }
     INFOF("acquired network from broker: status=%d (%s)", broker_status, vmnet_broker_strerror(broker_status));
@@ -184,11 +185,13 @@ int main(int argc, char *argv[]) {
     xpc_release(serialization);
 
     if (network == NULL) {
-        ERRORF("failed to create network from serialization: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
+        ERRORF("failed to create network from serialization: (%d) %s",
+            vmnet_status, vmnet_strerror(vmnet_status));
         exit(EXIT_FAILURE);
     }
 
-    INFOF("created network from serialization: status=%d (%s)", vmnet_status, vmnet_strerror(vmnet_status));
+    INFOF("created network from serialization: status=%d (%s)",
+        vmnet_status, vmnet_strerror(vmnet_status));
 
     struct network_info info;
     network_info(network, &info);
