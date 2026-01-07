@@ -359,8 +359,6 @@ static void handle_connection(xpc_connection_t connection) {
             if (event == XPC_ERROR_CONNECTION_INVALID) {
                 // Client connection is dead.
                 remove_peer(&ctx);
-            } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-                INFOF("[%s] temporary interruption", ctx.name);
             } else {
                 const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
                 WARNF("[%s] unexpected error: %s", ctx.name, desc);
