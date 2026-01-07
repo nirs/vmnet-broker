@@ -157,7 +157,7 @@ static void wait_for_termination(void)
     }
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     setup_kq();
 
     vmnet_broker_return_t broker_status;

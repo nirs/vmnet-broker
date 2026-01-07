@@ -409,7 +409,7 @@ static void setup_signal_handlers(void) {
 
     int signals[] = {SIGINT, SIGTERM};
 
-    for (int i = 0; i < ARRAY_SIZE(signals); i++) {
+    for (unsigned i = 0; i < ARRAY_SIZE(signals); i++) {
         int sig = signals[i];
 
         // Ignore the signal so we can handle it on the runloop.

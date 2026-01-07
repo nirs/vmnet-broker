@@ -7,7 +7,7 @@
 package vmnet_broker
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../include -Wall -O2
+#cgo CFLAGS: -I${SRCDIR}/../../include -Wall -Wextra -O2
 #include "vmnet-broker.h"
 #include <stdlib.h>
 */

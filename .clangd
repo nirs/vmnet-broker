@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-Wall]
+  Add: [-Wall, -Wextra]
 ---
 If:
   PathMatch: ^(broker|client|test|lib)/.*

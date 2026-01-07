@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 CC = clang
-CFLAGS = -Wall -O2 -Iinclude
+CFLAGS = -Wall -Wextra -O2 -Iinclude
 LDFLAGS = -framework CoreFoundation -framework vmnet
 
 headers := $(shell find include -name '*.h')

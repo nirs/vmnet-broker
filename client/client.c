@@ -14,6 +14,7 @@ static void connect_to_broker(void) {
     // Must set the event handler but we don't use it. Errors are logged when we
     // receive a reply.
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+        (void)event;
     });
 
     xpc_connection_resume(connection);
