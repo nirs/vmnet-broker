@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: The vmnet-broker authors
 // SPDX-License-Identifier: Apache-2.0
 
+#include <dispatch/dispatch.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/event.h>
 #include <time.h>
 #include <uuid/uuid.h>
@@ -25,6 +27,9 @@ static int kq = -1;
 
 // Exit status.
 static int status;
+
+// Quick test mode - run tests and exit immediately
+static bool quick_mode = false;
 
 static void start_interface_from_network(vmnet_network_ref network) {
     INFO("starting vmnet interface from network");
@@ -157,7 +162,13 @@ static void wait_for_termination(void)
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Check for quick/non-interactive mode flag
+    if (argc > 1 && (strcmp(argv[1], "--quick") == 0 || strcmp(argv[1], "-q") == 0)) {
+        quick_mode = true;
+        INFO("running in quick mode");
+    }
+
     setup_kq();
 
     vmnet_broker_return_t broker_status;
@@ -166,6 +177,7 @@ int main() {
         ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);
     }
+    INFOF("acquired network from broker: status=%d (%s)", broker_status, vmnet_broker_strerror(broker_status));
 
     vmnet_return_t vmnet_status;
     vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
@@ -176,6 +188,8 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    INFOF("created network from serialization: status=%d (%s)", vmnet_status, vmnet_strerror(vmnet_status));
+
     struct network_info info;
     network_info(network, &info);
     INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
@@ -185,7 +199,10 @@ int main() {
     start_interface_from_network(network);
     CFRelease(network);
 
-    wait_for_termination();
+    if (!quick_mode) {
+        wait_for_termination();
+    }
+
     stop_interface();
 
     return status;
