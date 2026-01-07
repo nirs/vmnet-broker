@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 3am UTC (temporary: detect upstream PR changes)
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+
+      - name: Install clang-format
+        run: brew install clang-format
+
+      - name: Setup Go test dependency
+        run: |
+          git clone https://github.com/norio-nomura/vz ../norio-nomura/vz
+          cd ../norio-nomura/vz
+          git checkout feat-add-vmnet-network-device-attachment
+          make
+
+      - name: Build
+        run: make
+
+      - name: Install
+        run: make install
+
+      - name: Test
+        run: make test
