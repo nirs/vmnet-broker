@@ -136,14 +136,47 @@ func hardStop(_ vm: VZVirtualMachine, reason: String) {
 }
 
 func createBootLoader(_ cfg: BootloaderConfig) -> VZBootLoader {
-    let kernelURL = URL(fileURLWithPath: cfg.kernel, isDirectory: false)
-    let initrdURL = URL(fileURLWithPath: cfg.initrd, isDirectory: false)
+    let bootloaderType = cfg.type ?? "linux"
+    switch bootloaderType {
+    case "linux":
+        guard let kernelPath = cfg.kernel, !kernelPath.isEmpty,
+              let initrdPath = cfg.initrd, !initrdPath.isEmpty else {
+            logger.error("Linux bootloader requires 'kernel' and 'initrd' fields in config.json")
+            exit(EXIT_FAILURE)
+        }
+        let kernelURL = URL(fileURLWithPath: kernelPath, isDirectory: false)
+        let initrdURL = URL(fileURLWithPath: initrdPath, isDirectory: false)
 
-    let bootLoader = VZLinuxBootLoader(kernelURL: kernelURL)
-    bootLoader.initialRamdiskURL = initrdURL
-    bootLoader.commandLine = "console=hvc0 root=LABEL=cloudimg-rootfs"
+        let bootLoader = VZLinuxBootLoader(kernelURL: kernelURL)
+        bootLoader.initialRamdiskURL = initrdURL
+        bootLoader.commandLine = "console=hvc0 root=LABEL=cloudimg-rootfs"
+        return bootLoader
 
-    return bootLoader
+    case "efi":
+        guard let variableStorePath = cfg.variableStore, !variableStorePath.isEmpty else {
+            logger.error("EFI bootloader requires 'variable-store' field in config.json")
+            exit(EXIT_FAILURE)
+        }
+        let variableStoreURL = URL(fileURLWithPath: variableStorePath, isDirectory: false)
+        let variableStore: VZEFIVariableStore
+        if FileManager.default.fileExists(atPath: variableStorePath) {
+            variableStore = VZEFIVariableStore(url: variableStoreURL)
+        } else {
+            do {
+                variableStore = try VZEFIVariableStore(creatingVariableStoreAt: variableStoreURL)
+            } catch {
+                logger.error("Failed to create EFI variable store: \(error)")
+                exit(EXIT_FAILURE)
+            }
+        }
+        let bootLoader = VZEFIBootLoader()
+        bootLoader.variableStore = variableStore
+        return bootLoader
+
+    default:
+        logger.error("unknown bootloader type '\(bootloaderType)' (must be 'efi' or 'linux')")
+        exit(EXIT_FAILURE)
+    }
 }
 
 @MainActor
@@ -236,8 +269,22 @@ struct VMConfig: Codable {
 }
 
 struct BootloaderConfig: Codable {
-    let kernel: String
-    let initrd: String
+    let type: String? // Defaults to "linux"
+
+    // type: "linux"
+    let kernel: String?
+    let initrd: String?
+
+    // type: "efi"
+    let variableStore: String?
+
+    // Must include all keys to confrom to Codeable protocol.
+    enum CodingKeys: String, CodingKey {
+        case type
+        case kernel
+        case initrd
+        case variableStore = "variable-store"
+    }
 }
 
 struct DiskConfig: Codable {
