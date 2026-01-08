@@ -4,6 +4,7 @@
 #include <dispatch/dispatch.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "broker-xpc.h"
 #include "vmnet-broker.h"
@@ -15,6 +16,8 @@ static const struct broker_ops *ops;
 static void init_context(struct broker_context *ctx, xpc_connection_t connection) {
     ctx->connection = connection;
     snprintf(ctx->name, sizeof(ctx->name), "peer %d", xpc_connection_get_pid(connection));
+    memset(ctx->networks, 0, sizeof(ctx->networks));
+    ctx->network_count = 0;
 }
 
 static void handle_connection(xpc_connection_t connection) {
