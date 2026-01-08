@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 
     uint64_t start_time = gettime();
     vmnet_broker_return_t broker_status;
-    xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
+    xpc_object_t serialization = vmnet_broker_acquire_network("shared", &broker_status);
     uint64_t end_time = gettime();
 
     if (serialization == NULL) {

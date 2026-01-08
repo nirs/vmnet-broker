@@ -9,6 +9,7 @@
 #include "broker-xpc.h"
 #include "common.h"
 #include "log.h"
+#include "vmnet-broker.h"
 
 // Network configuration.
 struct network_config {
@@ -145,11 +146,15 @@ static void free_network(struct network *_Nonnull network, const struct broker_c
 
 static struct network *create_network(
     const struct broker_context *ctx,
-    const char *network_name
+    const char *network_name,
+    int *error
 ) {
     const struct network_config *config = find_network_config(network_name);
     if (config == NULL) {
         WARNF("[%s] network '%s' not found", ctx->name, network_name);
+        if (error) {
+            *error = VMNET_BROKER_NOT_FOUND;
+        }
         return NULL;
     }
     vmnet_return_t status;
@@ -157,18 +162,21 @@ static struct network *create_network(
     struct network *network = calloc(1, sizeof(*network));
     if (network == NULL) {
         WARNF("[%s] failed to allocate network: %s", ctx->name, strerror(errno));
+        if (error) {
+            *error = VMNET_BROKER_CREATE_FAILURE;
+        }
         return NULL;
     }
 
     vmnet_network_configuration_ref configuration = create_network_configuration(ctx, config);
     if (configuration == NULL) {
-        goto error;
+        goto failure;
     }
 
     network->ref = vmnet_network_create(configuration, &status);
     if (network->ref == NULL) {
         WARNF("[%s] failed to create network ref: (%d) %s", ctx->name, status, vmnet_strerror(status));
-        goto error;
+        goto failure;
     }
 
     struct network_info info;
@@ -179,16 +187,19 @@ static struct network *create_network(
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
     if (network->serialization == NULL) {
         WARNF("[%s] failed to create network serialization: (%d) %s", ctx->name, status, vmnet_strerror(status));
-        goto error;
+        goto failure;
     }
 
     return network;
 
-error:
+failure:
     if (configuration) {
         CFRelease(configuration);
     }
     free_network(network, ctx);
+    if (error) {
+        *error = VMNET_BROKER_CREATE_FAILURE;
+    }
     return NULL;
 }
 
@@ -234,24 +245,20 @@ static void release_registry(const struct broker_context *ctx) {
 
 // MARK: - Public API
 
-// Acquire a network, creating it if necessary. Return a retained xpc_object_t
-// serialization on success, or NULL on failure. The caller is responsible for
-// releasing the returned object using xpc_release().
-// TODO: Accept network name parameter.
-xpc_object_t acquire_network(const struct broker_context *ctx) {
+xpc_object_t acquire_network(const struct broker_context *ctx,
+                             const char *network_name,
+                             int *error) {
     xpc_object_t result = NULL;
     CFStringRef key = NULL;
 
     init_registry();
 
-    // For now, use "shared" as the default network name
-    const char *network_name = "shared";
     key = CFStringCreateWithCString(NULL, network_name, kCFStringEncodingUTF8);
 
     struct network *net = (struct network *)CFDictionaryGetValue(registry, key);
 
     if (net == NULL) {
-        net = create_network(ctx, network_name);
+        net = create_network(ctx, network_name, error);
         if (net == NULL) {
             goto cleanup;
         }

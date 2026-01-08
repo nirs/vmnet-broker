@@ -44,9 +44,17 @@ static void on_peer_request(const struct broker_context *ctx, xpc_object_t event
         return;
     }
 
-    xpc_object_t network_serialization = acquire_network(ctx);
+    const char *network_name = xpc_dictionary_get_string(event, REQUEST_NETWORK_NAME);
+    if (network_name == NULL) {
+        WARNF("[%s] invalid request: missing network_name", ctx->name);
+        send_xpc_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
+        return;
+    }
+
+    int error = 0;
+    xpc_object_t network_serialization = acquire_network(ctx, network_name, &error);
     if (network_serialization == NULL) {
-        send_xpc_error(ctx, event, VMNET_BROKER_CREATE_FAILURE);
+        send_xpc_error(ctx, event, error);
         return;
     }
 
