@@ -182,6 +182,8 @@ static struct network *create_network(
     }
 
     network->ref = vmnet_network_create(configuration, &status);
+    CFRelease(configuration);
+    configuration = NULL;
     if (network->ref == NULL) {
         WARNF("[%s] failed to create network ref: (%d) %s", ctx->name, status, vmnet_strerror(status));
         goto failure;
