@@ -29,7 +29,7 @@ struct broker_ops {
 
 // Start the XPC listener with the given broker operations
 // Returns 0 on success, -1 on failure
-int start_xpc_listener(const struct broker_ops *ops);
+int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops *ops);
 
 // XPC protocol helpers for sending replies
 // Send an error reply to a peer

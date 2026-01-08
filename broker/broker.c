@@ -167,7 +167,7 @@ int main() {
 
     setup_signal_handlers();
 
-    if (start_xpc_listener(&broker_ops) != 0) {
+    if (start_xpc_listener(&main_context, &broker_ops) != 0) {
         ERRORF("[%s] failed to start XPC listener", main_context.name);
         exit(EXIT_FAILURE);
     }

@@ -40,7 +40,7 @@ static void handle_connection(xpc_connection_t connection) {
                 }
             } else {
                 const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-                WARNF("[xpc] unexpected error: %s", desc);
+                WARNF("[%s] unexpected error: %s", ctx.name, desc);
             }
         } else if (type == XPC_TYPE_DICTIONARY) {
             // Forward request to broker
@@ -92,14 +92,14 @@ void send_xpc_network(const struct broker_context *ctx, xpc_object_t event, xpc_
     xpc_release(reply);
 }
 
-int start_xpc_listener(const struct broker_ops *broker_ops) {
+int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops *broker_ops) {
     if (broker_ops == NULL) {
         return -1;
     }
 
     ops = broker_ops;
 
-    DEBUG("[xpc] setting up listener");
+    DEBUGF("[%s] setting up listener", ctx->name);
 
     // We use the main queue to minimize memory. The broker is mostly idle and
     // handles few clients in its lifetime. There is no reason to have more than
@@ -111,7 +111,7 @@ int start_xpc_listener(const struct broker_ops *broker_ops) {
     );
 
     if (listener == NULL) {
-        ERROR("[xpc] failed to create listener");
+        ERRORF("[%s] failed to create listener", ctx->name);
         return -1;
     }
 
@@ -120,7 +120,7 @@ int start_xpc_listener(const struct broker_ops *broker_ops) {
         if (type == XPC_TYPE_ERROR) {
             // We don't expect any non fatal errors.
             const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
-            ERRORF("[xpc] listener failed: %s", desc);
+            ERRORF("[%s] listener failed: %s", ctx->name, desc);
             exit(EXIT_FAILURE);
         } else if (type == XPC_TYPE_CONNECTION) {
             xpc_connection_t connection = (xpc_connection_t)event;
