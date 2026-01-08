@@ -38,6 +38,7 @@ struct network_config {
 // Shared network used by one of more clients.
 // TODO: Keep reference count.
 struct network {
+    char *name;
     vmnet_network_ref ref;
     xpc_object_t serialization;
 };
@@ -134,13 +135,14 @@ static void free_network(struct network *_Nonnull network, const struct broker_c
     if (network->ref) {
         struct network_info info;
         network_info(network->ref, &info);
-        INFOF("[%s] deleted network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-            ctx->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+        INFOF("[%s] deleted network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+            ctx->name, network->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
         CFRelease(network->ref);
     }
     if (network->serialization) {
         xpc_release(network->serialization);
     }
+    free(network->name);
     free(network);
 }
 
@@ -157,18 +159,24 @@ static struct network *create_network(
         }
         return NULL;
     }
-    vmnet_return_t status;
 
-    struct network *network = calloc(1, sizeof(*network));
+    vmnet_return_t status;
+    vmnet_network_configuration_ref configuration = NULL;
+    struct network *network = NULL;
+
+    network = calloc(1, sizeof(*network));
     if (network == NULL) {
         WARNF("[%s] failed to allocate network: %s", ctx->name, strerror(errno));
-        if (error) {
-            *error = VMNET_BROKER_CREATE_FAILURE;
-        }
-        return NULL;
+        goto failure;
     }
 
-    vmnet_network_configuration_ref configuration = create_network_configuration(ctx, config);
+    network->name = strdup(network_name);
+    if (network->name == NULL) {
+        WARNF("[%s] failed to allocate network name: %s", ctx->name, strerror(errno));
+        goto failure;
+    }
+
+    configuration = create_network_configuration(ctx, config);
     if (configuration == NULL) {
         goto failure;
     }
@@ -181,8 +189,8 @@ static struct network *create_network(
 
     struct network_info info;
     network_info(network->ref, &info);
-    INFOF("[%s] created network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        ctx->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
+    INFOF("[%s] created network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        ctx->name, network_name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
 
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
     if (network->serialization == NULL) {

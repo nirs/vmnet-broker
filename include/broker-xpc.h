@@ -36,6 +36,7 @@ int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops
 void send_xpc_error(const struct broker_context *ctx, xpc_object_t event, int code);
 
 // Send a network serialization reply to a peer
-void send_xpc_network(const struct broker_context *ctx, xpc_object_t event, xpc_object_t network_serialization);
+void send_xpc_network(const struct broker_context *ctx, xpc_object_t event,
+                      const char *network_name, xpc_object_t network_serialization);
 
 #endif // BROKER_XPC_H

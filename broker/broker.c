@@ -58,7 +58,7 @@ static void on_peer_request(const struct broker_context *ctx, xpc_object_t event
         return;
     }
 
-    send_xpc_network(ctx, event, network_serialization);
+    send_xpc_network(ctx, event, network_name, network_serialization);
     xpc_release(network_serialization);
 }
 
