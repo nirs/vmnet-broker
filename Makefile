@@ -23,7 +23,8 @@ test_objects = $(patsubst %.c,$(build_dir)/%.o,$(test_sources))
 all: vmnet-broker test-c test-swift test-go
 
 test: test-c
-	./test-c --quick
+	./test-c --quick shared
+	./test-c --quick host
 	cd go && go test -v ./vmnet_broker
 	cd swift && swift test
 
