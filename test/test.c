@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <dispatch/dispatch.h>
+#include <getopt.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/event.h>
@@ -17,6 +19,84 @@
 bool verbose = true;
 
 #define NANOSECONDS_PER_SECOND 1000000000ULL
+
+// Command line options
+static struct {
+    const char *network_name;
+    bool quick;
+} opt = {
+    .network_name = "shared",
+    .quick = false,
+};
+
+// Start with ':' to enable detection of missing argument.
+static const char *short_options = ":hq";
+
+static struct option long_options[] = {
+    {"help",  no_argument, 0, 'h'},
+    {"quick", no_argument, 0, 'q'},
+    {0,       0,           0, 0}
+};
+
+static void usage(int code)
+{
+    fputs(
+        "\n"
+        "Test vmnet-broker client\n"
+        "\n"
+        "    test-c [-q|--quick] [-h|--help] [network_name]\n"
+        "\n"
+        "Options:\n"
+        "    -q, --quick    Run quick test and exit immediately\n"
+        "    -h, --help     Show this help message\n"
+        "\n"
+        "Arguments:\n"
+        "    network_name   Network to acquire (default: shared)\n"
+        "\n",
+        stderr);
+
+    exit(code);
+}
+
+static void parse_options(int argc, char *argv[])
+{
+    const char *optname;
+    int c;
+
+    // Silence getopt_long error messages.
+    opterr = 0;
+
+    while (1) {
+        optname = argv[optind];
+        c = getopt_long(argc, argv, short_options, long_options, NULL);
+
+        if (c == -1) {
+            break;
+        }
+
+        switch (c) {
+        case 'h':
+            usage(0);
+            break;
+        case 'q':
+            opt.quick = true;
+            break;
+        case ':':
+            ERRORF("Option %s requires an argument", optname);
+            usage(1);
+            break;
+        case '?':
+        default:
+            ERRORF("Invalid option: %s", optname);
+            usage(1);
+        }
+    }
+
+    // Parse positional arguments.
+    if (optind < argc) {
+        opt.network_name = argv[optind++];
+    }
+}
 
 static uint64_t gettime(void) {
     struct timespec ts;
@@ -36,9 +116,6 @@ static int kq = -1;
 
 // Exit status.
 static int status;
-
-// Quick test mode - run tests and exit immediately
-static bool quick_mode = false;
 
 static void start_interface_from_network(vmnet_network_ref network) {
     INFO("starting vmnet interface from network");
@@ -171,30 +248,24 @@ static void wait_for_termination(void)
     }
 }
 
-int main(int argc, char *argv[]) {
-    // Check for quick/non-interactive mode flag
-    if (argc > 1 && (strcmp(argv[1], "--quick") == 0 || strcmp(argv[1], "-q") == 0)) {
-        quick_mode = true;
-        INFO("running in quick mode");
-    }
-
-    setup_kq();
+static void test_network(const char *network_name) {
+    INFOF("testing network '%s'", network_name);
 
     uint64_t start_time = gettime();
     vmnet_broker_return_t broker_status;
-    xpc_object_t serialization = vmnet_broker_acquire_network("shared", &broker_status);
+    xpc_object_t serialization = vmnet_broker_acquire_network(network_name, &broker_status);
     uint64_t end_time = gettime();
 
     if (serialization == NULL) {
-        ERRORF("failed to start broker session: (%d) %s",
-            broker_status, vmnet_broker_strerror(broker_status));
+        ERRORF("failed to acquire network '%s': (%d) %s",
+            network_name, broker_status, vmnet_broker_strerror(broker_status));
         exit(EXIT_FAILURE);
     }
 
     uint64_t elapsed_nanos = end_time - start_time;
     double elapsed_seconds = (double)elapsed_nanos / NANOSECONDS_PER_SECOND;
-    INFOF("acquired network from broker: status=%d (%s) in %.6f s",
-        broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
+    INFOF("acquired network '%s' from broker: status=%d (%s) in %.6f s",
+        network_name, broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
 
     vmnet_return_t vmnet_status;
     vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
@@ -212,17 +283,28 @@ int main(int argc, char *argv[]) {
     struct network_info info;
     network_info(network, &info);
     INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len );
+        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
 
     // NOTE: This requires root or com.apple.security.virtualization entitlement.
     start_interface_from_network(network);
     CFRelease(network);
 
-    if (!quick_mode) {
+    if (!opt.quick) {
         wait_for_termination();
     }
 
     stop_interface();
+}
+
+int main(int argc, char *argv[]) {
+    parse_options(argc, argv);
+
+    if (opt.quick) {
+        INFOF("running in quick mode with network '%s'", opt.network_name);
+    }
+
+    setup_kq();
+    test_network(opt.network_name);
 
     return status;
 }
