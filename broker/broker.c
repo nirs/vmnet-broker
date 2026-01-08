@@ -114,6 +114,8 @@ static void on_peer_disconnect(struct broker_context *ctx) {
 
     INFOF("[%s] disconnected (connected peers %d)", ctx->name, connected_peers);
 
+    release_peer_networks(ctx);
+
     if (connected_peers == 0) {
         // This is the last peer - end the transaction so launchd will be able
         // stop the broker quickly if needed.

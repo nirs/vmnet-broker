@@ -4,6 +4,7 @@
 #include <CoreFoundation/CFBase.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "broker-xpc.h"
@@ -35,10 +36,10 @@ struct network_config {
     // - MTU: 1500
 };
 
-// Shared network used by one of more clients.
-// TODO: Keep reference count.
+// Shared network used by one or more peers.
 struct network {
     char *name;
+    int peers;  // Number of peers using this network
     vmnet_network_ref ref;
     xpc_object_t serialization;
 };
@@ -252,9 +253,51 @@ static void release_registry(const struct broker_context *ctx) {
     }
 }
 
+// MARK: - Peer ownership helpers
+
+// Check if peer already owns a network.
+static bool peer_owns_network(const struct broker_context *ctx, const struct network *net) {
+    for (int i = 0; i < ctx->network_count; i++) {
+        if (ctx->networks[i] == net) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Assumes peer does not already own the network (caller must check first).
+static bool can_add_network_to_peer(struct broker_context *ctx, int *error) {
+    if (ctx->network_count >= MAX_PEER_NETWORKS) {
+        WARNF("[%s] peer has too many networks (%d)", ctx->name, ctx->network_count);
+        if (error) {
+            *error = VMNET_BROKER_INTERNAL_ERROR;
+        }
+        return false;
+    }
+    return true;
+}
+
+// Ensure peer owns the network, adding it if not already owned.
+// Returns true on success, false on failure.
+static bool update_peer_ownership(struct broker_context *ctx, struct network *net, int *error) {
+    if (peer_owns_network(ctx, net)) {
+        return true;
+    }
+
+    if (!can_add_network_to_peer(ctx, error)) {
+        return false;
+    }
+
+    ctx->networks[ctx->network_count++] = net;
+    net->peers++;
+    INFOF("[%s] acquired network '%s' (peers %d)", ctx->name, net->name, net->peers);
+
+    return true;
+}
+
 // MARK: - Public API
 
-xpc_object_t acquire_network(const struct broker_context *ctx,
+xpc_object_t acquire_network(struct broker_context *ctx,
                              const char *network_name,
                              int *error) {
     xpc_object_t result = NULL;
@@ -267,6 +310,10 @@ xpc_object_t acquire_network(const struct broker_context *ctx,
     struct network *net = (struct network *)CFDictionaryGetValue(registry, key);
 
     if (net == NULL) {
+        if (!can_add_network_to_peer(ctx, error)) {
+            goto cleanup;
+        }
+
         const struct network_config *config = find_network_config(ctx, network_name, error);
         if (config == NULL) {
             goto cleanup;
@@ -280,6 +327,10 @@ xpc_object_t acquire_network(const struct broker_context *ctx,
         CFDictionarySetValue(registry, key, net);
     }
 
+    if (!update_peer_ownership(ctx, net, error)) {
+        goto cleanup;
+    }
+
     result = xpc_retain(net->serialization);
 
 cleanup:
@@ -287,6 +338,23 @@ cleanup:
         CFRelease(key);
     }
     return result;
+}
+
+void release_peer_networks(struct broker_context *ctx) {
+    for (int i = 0; i < ctx->network_count; i++) {
+        struct network *net = ctx->networks[i];
+
+        net->peers--;
+        INFOF("[%s] released network '%s' (peers %d)", ctx->name, net->name, net->peers);
+
+        if (net->peers == 0) {
+            CFStringRef key = CFStringCreateWithCString(NULL, net->name, kCFStringEncodingUTF8);
+            CFDictionaryRemoveValue(registry, key);
+            CFRelease(key);
+            // Note: free_network is called by registry_release callback
+        }
+    }
+    ctx->network_count = 0;
 }
 
 // Shutdown all networks in the registry.
