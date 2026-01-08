@@ -78,9 +78,9 @@ void send_xpc_error(const struct broker_context *ctx, xpc_object_t event, int co
     xpc_release(reply);
 }
 
-void send_xpc_network(const struct broker_context *ctx, xpc_object_t event, xpc_object_t network_serialization) {
-    // TODO: log network details (e.g., network name) when available in serialization
-    DEBUGF("[%s] send network to peer", ctx->name);
+void send_xpc_network(const struct broker_context *ctx, xpc_object_t event,
+                      const char *network_name, xpc_object_t network_serialization) {
+    DEBUGF("[%s] send network '%s' to peer", ctx->name, network_name);
 
     xpc_object_t reply = create_reply(ctx, event);
     if (reply == NULL) {
