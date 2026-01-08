@@ -116,11 +116,19 @@ error:
     return NULL;
 }
 
-static const struct network_config *find_network_config(const char *name) {
+static const struct network_config *find_network_config(
+    const struct broker_context *ctx,
+    const char *name,
+    int *error
+) {
     for (size_t i = 0; i < ARRAY_SIZE(builtin_networks); i++) {
         if (strcmp(builtin_networks[i].name, name) == 0) {
             return &builtin_networks[i];
         }
+    }
+    WARNF("[%s] network '%s' not found", ctx->name, name);
+    if (error) {
+        *error = VMNET_BROKER_NOT_FOUND;
     }
     return NULL;
 }
@@ -148,18 +156,9 @@ static void free_network(struct network *_Nonnull network, const struct broker_c
 
 static struct network *create_network(
     const struct broker_context *ctx,
-    const char *network_name,
+    const struct network_config *config,
     int *error
 ) {
-    const struct network_config *config = find_network_config(network_name);
-    if (config == NULL) {
-        WARNF("[%s] network '%s' not found", ctx->name, network_name);
-        if (error) {
-            *error = VMNET_BROKER_NOT_FOUND;
-        }
-        return NULL;
-    }
-
     vmnet_return_t status;
     vmnet_network_configuration_ref configuration = NULL;
     struct network *network = NULL;
@@ -170,7 +169,7 @@ static struct network *create_network(
         goto failure;
     }
 
-    network->name = strdup(network_name);
+    network->name = strdup(config->name);
     if (network->name == NULL) {
         WARNF("[%s] failed to allocate network name: %s", ctx->name, strerror(errno));
         goto failure;
@@ -192,7 +191,7 @@ static struct network *create_network(
     struct network_info info;
     network_info(network->ref, &info);
     INFOF("[%s] created network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        ctx->name, network_name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+        ctx->name, config->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
 
     network->serialization = vmnet_network_copy_serialization(network->ref, &status);
     if (network->serialization == NULL) {
@@ -268,7 +267,12 @@ xpc_object_t acquire_network(const struct broker_context *ctx,
     struct network *net = (struct network *)CFDictionaryGetValue(registry, key);
 
     if (net == NULL) {
-        net = create_network(ctx, network_name, error);
+        const struct network_config *config = find_network_config(ctx, network_name, error);
+        if (config == NULL) {
+            goto cleanup;
+        }
+
+        net = create_network(ctx, config, error);
         if (net == NULL) {
             goto cleanup;
         }
