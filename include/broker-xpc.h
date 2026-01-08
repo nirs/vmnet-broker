@@ -6,11 +6,17 @@
 
 #include <xpc/xpc.h>
 
+// Maximum number of networks a single peer can acquire
+#define MAX_PEER_NETWORKS 8
+
 // Context structure managed by XPC layer
 // Allocated on stack in handle_connection and captured by the event handler block
 struct broker_context {
     xpc_connection_t connection;
     char name[sizeof("peer 9223372036854775807")];
+    // Networks acquired by this peer (opaque pointers managed by network.c)
+    void *networks[MAX_PEER_NETWORKS];
+    int network_count;
 };
 
 // Broker operations interface - called by XPC layer when events occur
