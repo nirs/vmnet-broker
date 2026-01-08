@@ -18,13 +18,13 @@ struct broker_ops {
     // Called when a new peer connects
     // Context is allocated and managed by XPC layer (captured in block)
     // The same context instance is used for all operations on this connection
-    void (*on_peer_connect)(const struct broker_context *ctx);
+    void (*on_peer_connect)(struct broker_context *ctx);
 
     // Called when a peer disconnects
-    void (*on_peer_disconnect)(const struct broker_context *ctx);
+    void (*on_peer_disconnect)(struct broker_context *ctx);
 
     // Called when a peer sends a request
-    void (*on_peer_request)(const struct broker_context *ctx, xpc_object_t event);
+    void (*on_peer_request)(struct broker_context *ctx, xpc_object_t event);
 };
 
 // Start the XPC listener with the given broker operations

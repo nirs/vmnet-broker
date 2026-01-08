@@ -31,7 +31,7 @@ static int connected_peers;
 static dispatch_source_t idle_timer;
 
 
-static void on_peer_request(const struct broker_context *ctx, xpc_object_t event) {
+static void on_peer_request(struct broker_context *ctx, xpc_object_t event) {
     const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
     if (command == NULL) {
         WARNF("[%s] invalid request: missing command key", ctx->name);
@@ -90,7 +90,7 @@ static void shutdown_later(const struct broker_context *ctx) {
     dispatch_resume(idle_timer);
 }
 
-static void on_peer_connect(const struct broker_context *ctx) {
+static void on_peer_connect(struct broker_context *ctx) {
     connected_peers++;
 
     INFOF("[%s] connected (connected peers %d)", ctx->name, connected_peers);
@@ -109,7 +109,7 @@ static void on_peer_connect(const struct broker_context *ctx) {
     }
 }
 
-static void on_peer_disconnect(const struct broker_context *ctx) {
+static void on_peer_disconnect(struct broker_context *ctx) {
     connected_peers--;
 
     INFOF("[%s] disconnected (connected peers %d)", ctx->name, connected_peers);
