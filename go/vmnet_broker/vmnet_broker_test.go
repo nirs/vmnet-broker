@@ -14,9 +14,9 @@ func TestAcquireNetwork(t *testing.T) {
 	// Note: These tests requires installation of the vmnet-broker launchd daemon.
 
 	t.Run("ValidNetwork", func(t *testing.T) {
-		s, err := vmnet_broker.AcquireNetwork("default")
+		s, err := vmnet_broker.AcquireNetwork("shared")
 		if err != nil {
-			t.Fatalf("Expected success for 'default' network, got error: %v", err)
+			t.Fatalf("Expected success for 'shared' network, got error: %v", err)
 		}
 		if s == nil {
 			t.Fatal("Expected valid serialization, got nil")

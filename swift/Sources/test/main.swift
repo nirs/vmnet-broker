@@ -235,7 +235,7 @@ func createNetworkDeviceConfiguration(_ mac: String) -> VZVirtioNetworkDeviceCon
 
     let serialization: xpc_object_t
     do {
-        serialization = try VmnetBroker.acquireNetwork(named: "default")
+        serialization = try VmnetBroker.acquireNetwork(named: "shared")
     } catch {
         logger.error("Failed to get network from broker: \(error)")
         exit(EXIT_FAILURE)

@@ -13,7 +13,7 @@ struct VmnetBrokerTests {
     /// Test acquiring a valid network
     @Test
     func validNetwork() throws {
-        let serialization = try VmnetBroker.acquireNetwork(named: "default")
+        let serialization = try VmnetBroker.acquireNetwork(named: "shared")
 
         var status: vmnet_return_t = .VMNET_SUCCESS
         let network = vmnet_network_create_with_serialization(serialization, &status)
