@@ -24,3 +24,9 @@ bats_require_minimum_version 1.5.0
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "acquire same network multiple times" {
+    run --separate-stderr ./test-c --quick shared shared shared
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}

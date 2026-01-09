@@ -207,7 +207,8 @@ static vmnet_network_ref acquire_network(const char *network_name) {
 
 // Start interface from network and add to interfaces list.
 static void start_interface(vmnet_network_ref network, const char *network_name) {
-    INFOF("starting vmnet interface for network '%s'", network_name);
+    int index = interface_count;
+    INFOF("starting vmnet interface %d for network '%s'", index, network_name);
 
     if (interface_count >= MAX_INTERFACES) {
         ERRORF("too many interfaces (max %d)", MAX_INTERFACES);
@@ -252,15 +253,16 @@ static void start_interface(vmnet_network_ref network, const char *network_name)
     interface->network_name = network_name;
     interface->iface = iface;
 
-    INFOF("vmnet interface for network '%s' started", network_name);
+    INFOF("vmnet interface %d for network '%s' started", index, network_name);
 }
 
 // Stop all interfaces in reverse order.
 static void stop_interfaces(void)
 {
     while (interface_count > 0) {
-        struct interface interface = interfaces[--interface_count];
-        INFOF("stopping vmnet interface for network '%s'", interface.network_name);
+        int index = --interface_count;
+        struct interface interface = interfaces[index];
+        INFOF("stopping vmnet interface %d for network '%s'", index, interface.network_name);
 
         dispatch_semaphore_t completed = dispatch_semaphore_create(0);
         vmnet_return_t vmnet_status = vmnet_stop_interface(
@@ -280,7 +282,7 @@ static void stop_interfaces(void)
         dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
         dispatch_release(completed);
 
-        INFOF("vmnet interface for network '%s' stopped", interface.network_name);
+        INFOF("vmnet interface %d for network '%s' stopped", index, interface.network_name);
     }
 
     if (vmnet_queue) {
