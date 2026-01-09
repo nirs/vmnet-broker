@@ -22,7 +22,13 @@ bool verbose = true;
 
 // Interfaces started by start_interface().
 #define MAX_INTERFACES 8
-static interface_ref interfaces[MAX_INTERFACES];
+
+struct interface {
+    const char *network_name;
+    interface_ref iface;
+};
+
+static struct interface interfaces[MAX_INTERFACES];
 static int interface_count = 0;
 
 // Used to start and stop interfaces.
@@ -46,10 +52,11 @@ static void fail(const char *step, int code) {
 
 // Command line options
 static struct {
-    const char *network_name;
+    const char *network_names[MAX_INTERFACES];
+    int network_count;
     bool quick;
 } opt = {
-    .network_name = "shared",
+    .network_count = 0,
     .quick = false,
 };
 
@@ -68,14 +75,14 @@ static void usage(int code)
         "\n"
         "Test vmnet-broker client\n"
         "\n"
-        "    test-c [-q|--quick] [-h|--help] [network_name]\n"
+        "    test-c [-q|--quick] [-h|--help] [network_name ...]\n"
         "\n"
         "Options:\n"
         "    -q, --quick    Run quick test and exit immediately\n"
         "    -h, --help     Show this help message\n"
         "\n"
         "Arguments:\n"
-        "    network_name   Network to acquire (default: shared)\n"
+        "    network_name   Networks to acquire (default: shared, max: 8)\n"
         "\n"
         "Output (stdout):\n"
         "    ok                 Test passed\n"
@@ -121,12 +128,32 @@ static void parse_options(int argc, char *argv[])
     }
 
     // Parse positional arguments.
-    if (optind < argc) {
-        opt.network_name = argv[optind++];
+    while (optind < argc) {
+        if (opt.network_count >= MAX_INTERFACES) {
+            ERRORF("too many networks (max %d)", MAX_INTERFACES);
+            fail("parse_options", E2BIG);
+        }
+        opt.network_names[opt.network_count++] = argv[optind++];
     }
 
+    // Default to "shared" if no networks specified.
+    if (opt.network_count == 0) {
+        opt.network_names[opt.network_count++] = "shared";
+    }
+
+    // Log the networks to test (8 networks * 64 bytes each).
+    char networks[512] = "";
+    size_t pos = 0;
+    for (int i = 0; i < opt.network_count; i++) {
+        int n = snprintf(networks + pos, sizeof(networks) - pos, "%s ", opt.network_names[i]);
+        if (n > 0 && pos + n < sizeof(networks)) {
+            pos += n;
+        }
+    }
+    INFOF("testing networks: %s", networks);
+
     if (opt.quick) {
-        INFOF("running in quick mode with network '%s'", opt.network_name);
+        INFO("running in quick mode");
     }
 }
 
@@ -179,8 +206,8 @@ static vmnet_network_ref acquire_network(const char *network_name) {
 }
 
 // Start interface from network and add to interfaces list.
-static void start_interface(vmnet_network_ref network) {
-    INFO("starting vmnet interface");
+static void start_interface(vmnet_network_ref network, const char *network_name) {
+    INFOF("starting vmnet interface for network '%s'", network_name);
 
     if (interface_count >= MAX_INTERFACES) {
         ERRORF("too many interfaces (max %d)", MAX_INTERFACES);
@@ -221,20 +248,23 @@ static void start_interface(vmnet_network_ref network) {
     dispatch_release(completed);
     xpc_release(desc);
 
-    interfaces[interface_count++] = iface;
-    INFO("vmnet interface started");
+    struct interface *interface = &interfaces[interface_count++];
+    interface->network_name = network_name;
+    interface->iface = iface;
+
+    INFOF("vmnet interface for network '%s' started", network_name);
 }
 
 // Stop all interfaces in reverse order.
 static void stop_interfaces(void)
 {
     while (interface_count > 0) {
-        interface_ref iface = interfaces[--interface_count];
-        INFOF("stopping vmnet interface %d", interface_count);
+        struct interface interface = interfaces[--interface_count];
+        INFOF("stopping vmnet interface for network '%s'", interface.network_name);
 
         dispatch_semaphore_t completed = dispatch_semaphore_create(0);
         vmnet_return_t vmnet_status = vmnet_stop_interface(
-            iface, vmnet_queue, ^(vmnet_return_t stop_status){
+            interface.iface, vmnet_queue, ^(vmnet_return_t stop_status){
             if (stop_status != VMNET_SUCCESS) {
                 ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
                 fail("stop_interface", stop_status);
@@ -250,7 +280,7 @@ static void stop_interfaces(void)
         dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
         dispatch_release(completed);
 
-        INFOF("vmnet interface %d stopped", interface_count);
+        INFOF("vmnet interface for network '%s' stopped", interface.network_name);
     }
 
     if (vmnet_queue) {
@@ -324,10 +354,13 @@ int main(int argc, char *argv[]) {
     setup_kq();
     setup_vmnet();
 
-    // Acquire network and start interface.
-    vmnet_network_ref network = acquire_network(opt.network_name);
-    start_interface(network);
-    CFRelease(network);
+    // Acquire networks and start interfaces.
+    for (int i = 0; i < opt.network_count; i++) {
+        const char *name = opt.network_names[i];
+        vmnet_network_ref network = acquire_network(name);
+        start_interface(network, name);
+        CFRelease(network);
+    }
 
     // Wait for termination signal (interactive mode only).
     int wait_error = 0;

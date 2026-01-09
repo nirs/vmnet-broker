@@ -18,3 +18,9 @@ bats_require_minimum_version 1.5.0
     [ "$status" -eq 1 ]
     [ "$output" = "fail acquire_network 5" ]
 }
+
+@test "acquire both shared and host networks" {
+    run --separate-stderr ./test-c --quick shared host
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
