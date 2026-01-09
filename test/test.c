@@ -16,9 +16,20 @@
 #include "common.h"
 #include "log.h"
 
+#define NANOSECONDS_PER_SECOND 1000000000ULL
+
 bool verbose = true;
 
-#define NANOSECONDS_PER_SECOND 1000000000ULL
+// Interfaces started by start_interface().
+#define MAX_INTERFACES 8
+static interface_ref interfaces[MAX_INTERFACES];
+static int interface_count = 0;
+
+// Used to start and stop interfaces.
+static dispatch_queue_t vmnet_queue;
+
+// Used to wait for signals.
+static int kq = -1;
 
 // Test result output for test runners (stdout).
 static void ok(void) {
@@ -113,6 +124,10 @@ static void parse_options(int argc, char *argv[])
     if (optind < argc) {
         opt.network_name = argv[optind++];
     }
+
+    if (opt.quick) {
+        INFOF("running in quick mode with network '%s'", opt.network_name);
+    }
 }
 
 static uint64_t gettime(void) {
@@ -122,27 +137,63 @@ static uint64_t gettime(void) {
     return (uint64_t)ts.tv_sec * NANOSECONDS_PER_SECOND + ts.tv_nsec;
 }
 
-// Client starts a vmnet interface using the network returned by the broker.
-static interface_ref interface;
+// Acquire network from broker and create vmnet_network_ref.
+static vmnet_network_ref acquire_network(const char *network_name) {
+    INFOF("acquiring network '%s'", network_name);
 
-// Used to start and stop the interface.
-static dispatch_queue_t vmnet_queue;
+    uint64_t start_time = gettime();
+    vmnet_broker_return_t broker_status;
+    xpc_object_t serialization = vmnet_broker_acquire_network(network_name, &broker_status);
+    uint64_t end_time = gettime();
 
-// Used to wait for signals.
-static int kq = -1;
+    if (serialization == NULL) {
+        ERRORF("failed to acquire network '%s': (%d) %s",
+            network_name, broker_status, vmnet_broker_strerror(broker_status));
+        fail("acquire_network", broker_status);
+    }
 
-static void start_interface_from_network(vmnet_network_ref network) {
-    INFO("starting vmnet interface from network");
+    uint64_t elapsed_nanos = end_time - start_time;
+    double elapsed_seconds = (double)elapsed_nanos / NANOSECONDS_PER_SECOND;
+    INFOF("acquired network '%s' from broker: status=%d (%s) in %.6f s",
+        network_name, broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
 
-    vmnet_queue = dispatch_queue_create("com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL);
+    vmnet_return_t vmnet_status;
+    vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
+    xpc_release(serialization);
+
+    if (network == NULL) {
+        ERRORF("failed to create network from serialization: (%d) %s",
+            vmnet_status, vmnet_strerror(vmnet_status));
+        fail("create_network", vmnet_status);
+    }
+
+    INFOF("created network from serialization: status=%d (%s)",
+        vmnet_status, vmnet_strerror(vmnet_status));
+
+    struct network_info info;
+    network_info(network, &info);
+    INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+
+    return network;
+}
+
+// Start interface from network and add to interfaces list.
+static void start_interface(vmnet_network_ref network) {
+    INFO("starting vmnet interface");
+
+    if (interface_count >= MAX_INTERFACES) {
+        ERRORF("too many interfaces (max %d)", MAX_INTERFACES);
+        fail("start_interface", ENOMEM);
+    }
 
     xpc_object_t desc = xpc_dictionary_create_empty();
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
 
-    interface = vmnet_interface_start_with_network(
+    interface_ref iface = vmnet_interface_start_with_network(
         network, desc, vmnet_queue, ^(vmnet_return_t start_status, xpc_object_t param){
         if (start_status != VMNET_SUCCESS) {
-            ERRORF("failed to start vmnet interface with network: (%d) %s", start_status, vmnet_strerror(start_status));
+            ERRORF("failed to start vmnet interface: (%d) %s", start_status, vmnet_strerror(start_status));
             fail("start_interface", start_status);
         }
 
@@ -170,39 +221,46 @@ static void start_interface_from_network(vmnet_network_ref network) {
     dispatch_release(completed);
     xpc_release(desc);
 
+    interfaces[interface_count++] = iface;
     INFO("vmnet interface started");
 }
 
-static void stop_interface(void)
+// Stop all interfaces in reverse order.
+static void stop_interfaces(void)
 {
-    if (interface == NULL) {
-        return;
-    }
+    while (interface_count > 0) {
+        interface_ref iface = interfaces[--interface_count];
+        INFOF("stopping vmnet interface %d", interface_count);
 
-    INFO("stopping vmnet interface");
+        dispatch_semaphore_t completed = dispatch_semaphore_create(0);
+        vmnet_return_t vmnet_status = vmnet_stop_interface(
+            iface, vmnet_queue, ^(vmnet_return_t stop_status){
+            if (stop_status != VMNET_SUCCESS) {
+                ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
+                fail("stop_interface", stop_status);
+            }
+            dispatch_semaphore_signal(completed);
+        });
 
-    dispatch_semaphore_t completed = dispatch_semaphore_create(0);
-    vmnet_return_t vmnet_status = vmnet_stop_interface(
-        interface, vmnet_queue, ^(vmnet_return_t stop_status){
-        if (stop_status != VMNET_SUCCESS) {
-            ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
-            fail("stop_interface", stop_status);
+        if (vmnet_status != VMNET_SUCCESS) {
+            ERRORF("failed to stop vmnet interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
+            fail("stop_interface", vmnet_status);
         }
-        dispatch_semaphore_signal(completed);
-    });
 
-    if (vmnet_status != VMNET_SUCCESS) {
-        ERRORF("failed to stop vmnet interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
-        fail("stop_interface", vmnet_status);
+        dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
+        dispatch_release(completed);
+
+        INFOF("vmnet interface %d stopped", interface_count);
     }
 
-    dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
-    dispatch_release(completed);
+    if (vmnet_queue) {
+        dispatch_release(vmnet_queue);
+        vmnet_queue = NULL;
+    }
+}
 
-    dispatch_release(vmnet_queue);
-    vmnet_queue = NULL;
-
-    INFO("vmnet interface stopped");
+static void setup_vmnet(void) {
+    vmnet_queue = dispatch_queue_create("com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL);
 }
 
 static void setup_kq(void)
@@ -260,67 +318,29 @@ static int wait_for_termination(void)
     }
 }
 
-static void test_network(const char *network_name) {
-    INFOF("testing network '%s'", network_name);
+int main(int argc, char *argv[]) {
+    parse_options(argc, argv);
 
-    uint64_t start_time = gettime();
-    vmnet_broker_return_t broker_status;
-    xpc_object_t serialization = vmnet_broker_acquire_network(network_name, &broker_status);
-    uint64_t end_time = gettime();
+    setup_kq();
+    setup_vmnet();
 
-    if (serialization == NULL) {
-        ERRORF("failed to acquire network '%s': (%d) %s",
-            network_name, broker_status, vmnet_broker_strerror(broker_status));
-        fail("acquire_network", broker_status);
-    }
-
-    uint64_t elapsed_nanos = end_time - start_time;
-    double elapsed_seconds = (double)elapsed_nanos / NANOSECONDS_PER_SECOND;
-    INFOF("acquired network '%s' from broker: status=%d (%s) in %.6f s",
-        network_name, broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
-
-    vmnet_return_t vmnet_status;
-    vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
-    xpc_release(serialization);
-
-    if (network == NULL) {
-        ERRORF("failed to create network from serialization: (%d) %s",
-            vmnet_status, vmnet_strerror(vmnet_status));
-        fail("create_network", vmnet_status);
-    }
-
-    INFOF("created network from serialization: status=%d (%s)",
-        vmnet_status, vmnet_strerror(vmnet_status));
-
-    struct network_info info;
-    network_info(network, &info);
-    INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
-
-    // NOTE: This requires root or com.apple.security.virtualization entitlement.
-    start_interface_from_network(network);
+    // Acquire network and start interface.
+    vmnet_network_ref network = acquire_network(opt.network_name);
+    start_interface(network);
     CFRelease(network);
 
+    // Wait for termination signal (interactive mode only).
     int wait_error = 0;
     if (!opt.quick) {
         wait_error = wait_for_termination();
     }
 
-    stop_interface();
+    // Stop all interfaces.
+    stop_interfaces();
 
     if (wait_error) {
         fail("kevent", wait_error);
     }
-}
 
-int main(int argc, char *argv[]) {
-    parse_options(argc, argv);
-
-    if (opt.quick) {
-        INFOF("running in quick mode with network '%s'", opt.network_name);
-    }
-
-    setup_kq();
-    test_network(opt.network_name);
     ok();
 }

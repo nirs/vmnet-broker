@@ -5,8 +5,8 @@
 - [x] Acquire "shared" network
 - [x] Acquire "host" network
 - [x] Acquire non-existing network
-- [ ] Extend test.c to receive multiple networks
-- [ ] Split acquire and clean up operations so we can acquire multiple networks at the same time.
+- [x] Extend test.c to receive multiple networks
+- [x] Split acquire and clean up operations so we can acquire multiple networks at the same time.
   - acquire network
   - start interface (validated the acquired network)
   - stop interface (clean up before exit)
