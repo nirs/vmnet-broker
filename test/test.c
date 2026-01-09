@@ -12,9 +12,9 @@
 #include <uuid/uuid.h>
 #include <xpc/xpc.h>
 
-#include "vmnet-broker.h"
 #include "common.h"
 #include "log.h"
+#include "vmnet-broker.h"
 
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 
@@ -64,13 +64,22 @@ static struct {
 static const char *short_options = ":hq";
 
 static struct option long_options[] = {
-    {"help",  no_argument, 0, 'h'},
-    {"quick", no_argument, 0, 'q'},
-    {0,       0,           0, 0}
+    {
+        .name = "help",
+        .has_arg = no_argument,
+        .flag = 0,
+        .val = 'h',
+    },
+    {
+        .name = "quick",
+        .has_arg = no_argument,
+        .flag = 0,
+        .val = 'q',
+    },
+    {0},
 };
 
-static void usage(int code)
-{
+static void usage(int code) {
     fputs(
         "\n"
         "Test vmnet-broker client\n"
@@ -88,13 +97,13 @@ static void usage(int code)
         "    ok                 Test passed\n"
         "    fail <step> <code> Test failed at step with error code\n"
         "\n",
-        stderr);
+        stderr
+    );
 
     exit(code);
 }
 
-static void parse_options(int argc, char *argv[])
-{
+static void parse_options(int argc, char *argv[]) {
     const char *optname;
     int c;
 
@@ -145,7 +154,9 @@ static void parse_options(int argc, char *argv[])
     char networks[512] = "";
     size_t pos = 0;
     for (int i = 0; i < opt.network_count; i++) {
-        int n = snprintf(networks + pos, sizeof(networks) - pos, "%s ", opt.network_names[i]);
+        int n = snprintf(
+            networks + pos, sizeof(networks) - pos, "%s ", opt.network_names[i]
+        );
         if (n > 0 && pos + n < sizeof(networks)) {
             pos += n;
         }
@@ -159,7 +170,8 @@ static void parse_options(int argc, char *argv[])
 
 static uint64_t gettime(void) {
     struct timespec ts;
-    // CLOCK_UPTIME_RAW: monotonic clock that increments even while system is asleep
+    // CLOCK_UPTIME_RAW: monotonic clock that increments even while system is
+    // asleep
     clock_gettime(CLOCK_UPTIME_RAW, &ts);
     return (uint64_t)ts.tv_sec * NANOSECONDS_PER_SECOND + ts.tv_nsec;
 }
@@ -170,43 +182,68 @@ static vmnet_network_ref acquire_network(const char *network_name) {
 
     uint64_t start_time = gettime();
     vmnet_broker_return_t broker_status;
-    xpc_object_t serialization = vmnet_broker_acquire_network(network_name, &broker_status);
+    xpc_object_t serialization = vmnet_broker_acquire_network(
+        network_name, &broker_status
+    );
     uint64_t end_time = gettime();
 
     if (serialization == NULL) {
-        ERRORF("failed to acquire network '%s': (%d) %s",
-            network_name, broker_status, vmnet_broker_strerror(broker_status));
+        ERRORF(
+            "failed to acquire network '%s': (%d) %s",
+            network_name,
+            broker_status,
+            vmnet_broker_strerror(broker_status)
+        );
         fail("acquire_network", broker_status);
     }
 
     uint64_t elapsed_nanos = end_time - start_time;
     double elapsed_seconds = (double)elapsed_nanos / NANOSECONDS_PER_SECOND;
-    INFOF("acquired network '%s' from broker: status=%d (%s) in %.6f s",
-        network_name, broker_status, vmnet_broker_strerror(broker_status), elapsed_seconds);
+    INFOF(
+        "acquired network '%s' from broker: status=%d (%s) in %.6f s",
+        network_name,
+        broker_status,
+        vmnet_broker_strerror(broker_status),
+        elapsed_seconds
+    );
 
     vmnet_return_t vmnet_status;
-    vmnet_network_ref network = vmnet_network_create_with_serialization(serialization, &vmnet_status);
+    vmnet_network_ref network = vmnet_network_create_with_serialization(
+        serialization, &vmnet_status
+    );
     xpc_release(serialization);
 
     if (network == NULL) {
-        ERRORF("failed to create network from serialization: (%d) %s",
-            vmnet_status, vmnet_strerror(vmnet_status));
+        ERRORF(
+            "failed to create network from serialization: (%d) %s",
+            vmnet_status,
+            vmnet_strerror(vmnet_status)
+        );
         fail("create_network", vmnet_status);
     }
 
-    INFOF("created network from serialization: status=%d (%s)",
-        vmnet_status, vmnet_strerror(vmnet_status));
+    INFOF(
+        "created network from serialization: status=%d (%s)",
+        vmnet_status,
+        vmnet_strerror(vmnet_status)
+    );
 
     struct network_info info;
     network_info(network, &info);
-    INFOF("received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+    INFOF(
+        "received network subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
+        info.subnet,
+        info.mask,
+        info.ipv6_prefix,
+        info.prefix_len
+    );
 
     return network;
 }
 
 // Start interface from network and add to interfaces list.
-static void start_interface(vmnet_network_ref network, const char *network_name) {
+static void
+start_interface(vmnet_network_ref network, const char *network_name) {
     int index = interface_count;
     INFOF("starting vmnet interface %d for network '%s'", index, network_name);
 
@@ -219,30 +256,42 @@ static void start_interface(vmnet_network_ref network, const char *network_name)
     dispatch_semaphore_t completed = dispatch_semaphore_create(0);
 
     interface_ref iface = vmnet_interface_start_with_network(
-        network, desc, vmnet_queue, ^(vmnet_return_t start_status, xpc_object_t param){
-        if (start_status != VMNET_SUCCESS) {
-            ERRORF("failed to start vmnet interface: (%d) %s", start_status, vmnet_strerror(start_status));
-            fail("start_interface", start_status);
-        }
-
-        xpc_dictionary_apply(param, ^bool(const char *key, xpc_object_t value) {
-            xpc_type_t t = xpc_get_type(value);
-            if (t == XPC_TYPE_UINT64) {
-                DEBUGF("%s: %llu", key, xpc_uint64_get_value(value));
-            } else if (t == XPC_TYPE_INT64) {
-                DEBUGF("%s: %lld", key, xpc_int64_get_value(value));
-            } else if (t == XPC_TYPE_STRING) {
-                DEBUGF("%s: '%s'", key, xpc_string_get_string_ptr(value));
-            } else if (t == XPC_TYPE_UUID) {
-                char uuid_str[36 + 1];
-                uuid_unparse(xpc_uuid_get_bytes(value), uuid_str);
-                DEBUGF("%s: '%s'", key, uuid_str);
+        network,
+        desc,
+        vmnet_queue,
+        ^(vmnet_return_t start_status, xpc_object_t param) {
+            if (start_status != VMNET_SUCCESS) {
+                ERRORF(
+                    "failed to start vmnet interface: (%d) %s",
+                    start_status,
+                    vmnet_strerror(start_status)
+                );
+                fail("start_interface", start_status);
             }
-            return true;
-        });
 
-        dispatch_semaphore_signal(completed);
-    });
+            xpc_dictionary_apply(
+                param, ^bool(const char *key, xpc_object_t value) {
+                    xpc_type_t t = xpc_get_type(value);
+                    if (t == XPC_TYPE_UINT64) {
+                        DEBUGF("%s: %llu", key, xpc_uint64_get_value(value));
+                    } else if (t == XPC_TYPE_INT64) {
+                        DEBUGF("%s: %lld", key, xpc_int64_get_value(value));
+                    } else if (t == XPC_TYPE_STRING) {
+                        DEBUGF(
+                            "%s: '%s'", key, xpc_string_get_string_ptr(value)
+                        );
+                    } else if (t == XPC_TYPE_UUID) {
+                        char uuid_str[36 + 1];
+                        uuid_unparse(xpc_uuid_get_bytes(value), uuid_str);
+                        DEBUGF("%s: '%s'", key, uuid_str);
+                    }
+                    return true;
+                }
+            );
+
+            dispatch_semaphore_signal(completed);
+        }
+    );
 
     dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
 
@@ -257,32 +306,48 @@ static void start_interface(vmnet_network_ref network, const char *network_name)
 }
 
 // Stop all interfaces in reverse order.
-static void stop_interfaces(void)
-{
+static void stop_interfaces(void) {
     while (interface_count > 0) {
         int index = --interface_count;
         struct interface interface = interfaces[index];
-        INFOF("stopping vmnet interface %d for network '%s'", index, interface.network_name);
+        INFOF(
+            "stopping vmnet interface %d for network '%s'",
+            index,
+            interface.network_name
+        );
 
         dispatch_semaphore_t completed = dispatch_semaphore_create(0);
         vmnet_return_t vmnet_status = vmnet_stop_interface(
-            interface.iface, vmnet_queue, ^(vmnet_return_t stop_status){
-            if (stop_status != VMNET_SUCCESS) {
-                ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
-                fail("stop_interface", stop_status);
+            interface.iface, vmnet_queue, ^(vmnet_return_t stop_status) {
+                if (stop_status != VMNET_SUCCESS) {
+                    ERRORF(
+                        "failed to stop vmnet interface: (%d) %s",
+                        stop_status,
+                        vmnet_strerror(stop_status)
+                    );
+                    fail("stop_interface", stop_status);
+                }
+                dispatch_semaphore_signal(completed);
             }
-            dispatch_semaphore_signal(completed);
-        });
+        );
 
         if (vmnet_status != VMNET_SUCCESS) {
-            ERRORF("failed to stop vmnet interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
+            ERRORF(
+                "failed to stop vmnet interface: (%d) %s",
+                vmnet_status,
+                vmnet_strerror(vmnet_status)
+            );
             fail("stop_interface", vmnet_status);
         }
 
         dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
         dispatch_release(completed);
 
-        INFOF("vmnet interface %d for network '%s' stopped", index, interface.network_name);
+        INFOF(
+            "vmnet interface %d for network '%s' stopped",
+            index,
+            interface.network_name
+        );
     }
 
     if (vmnet_queue) {
@@ -292,11 +357,12 @@ static void stop_interfaces(void)
 }
 
 static void setup_vmnet(void) {
-    vmnet_queue = dispatch_queue_create("com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL);
+    vmnet_queue = dispatch_queue_create(
+        "com.github.nirs.vmnet-client", DISPATCH_QUEUE_SERIAL
+    );
 }
 
-static void setup_kq(void)
-{
+static void setup_kq(void) {
     kq = kqueue();
     if (kq == -1) {
         ERRORF("kqueue: %s", strerror(errno));
@@ -304,8 +370,8 @@ static void setup_kq(void)
     }
 
     struct kevent changes[] = {
-        {.ident=SIGTERM, .filter=EVFILT_SIGNAL, .flags=EV_ADD},
-        {.ident=SIGINT, .filter=EVFILT_SIGNAL, .flags=EV_ADD},
+        {.ident = SIGTERM, .filter = EVFILT_SIGNAL, .flags = EV_ADD},
+        {.ident = SIGINT, .filter = EVFILT_SIGNAL, .flags = EV_ADD},
     };
 
     sigset_t mask;
@@ -330,8 +396,7 @@ static void setup_kq(void)
 }
 
 // Returns 0 on success (signal received), or errno on error.
-static int wait_for_termination(void)
-{
+static int wait_for_termination(void) {
     INFO("waiting for termination");
 
     struct kevent events[1];

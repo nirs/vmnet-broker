@@ -18,7 +18,7 @@ test_sources = test/test.c client/client.c lib/common.c
 broker_objects = $(patsubst %.c,$(build_dir)/%.o,$(broker_sources))
 test_objects = $(patsubst %.c,$(build_dir)/%.o,$(test_sources))
 
-.PHONY: all test install uninstall clean test-swift test-go
+.PHONY: all test install uninstall clean test-swift test-go fmt
 
 all: vmnet-broker test-c test-swift test-go
 
@@ -62,3 +62,6 @@ clean:
 	rm -rf $(build_dir)
 	cd swift && swift package clean
 	cd go && go clean
+
+fmt:
+	clang-format -i broker/*.c client/*.c lib/*.c test/*.c include/*.h

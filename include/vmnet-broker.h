@@ -29,7 +29,8 @@ typedef enum {
     VMNET_BROKER_XPC_FAILURE = 1,
     // Broker returned invalid reply.
     VMNET_BROKER_INVALID_REPLY = 2,
-    // Broker rejected the request because the user is not allowed to get the network.
+    // Broker rejected the request because the user is not allowed to get the
+    // network.
     VMNET_BROKER_NOT_ALLOWED = 3,
     // Broker rejected the request because the request was invalid.
     VMNET_BROKER_INVALID_REQUEST = 4,
@@ -68,9 +69,9 @@ typedef enum {
  * caller is responsible for releasing the returned object using
  * `xpc_release()`.
  */
-xpc_object_t _Nullable
-vmnet_broker_acquire_network(const char * _Nonnull network_name,
-                             vmnet_broker_return_t * _Nullable status);
+xpc_object_t _Nullable vmnet_broker_acquire_network(
+    const char *_Nonnull network_name, vmnet_broker_return_t *_Nullable status
+);
 
 /*!
  * @function vmnet_broker_strerror
@@ -84,7 +85,6 @@ vmnet_broker_acquire_network(const char * _Nonnull network_name,
  * @result
  * Description of the status.
  */
-const char * _Nonnull
-vmnet_broker_strerror(vmnet_broker_return_t status);
+const char *_Nonnull vmnet_broker_strerror(vmnet_broker_return_t status);
 
 #endif // VMNET_BROKER_H

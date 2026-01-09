@@ -10,7 +10,8 @@
 #define MAX_PEER_NETWORKS 8
 
 // Context structure managed by XPC layer
-// Allocated on stack in handle_connection and captured by the event handler block
+// Allocated on stack in handle_connection and captured by the event handler
+// block
 struct broker_context {
     xpc_connection_t connection;
     char name[sizeof("peer 9223372036854775807")];
@@ -35,14 +36,22 @@ struct broker_ops {
 
 // Start the XPC listener with the given broker operations
 // Returns 0 on success, -1 on failure
-int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops *ops);
+int start_xpc_listener(
+    const struct broker_context *ctx, const struct broker_ops *ops
+);
 
 // XPC protocol helpers for sending replies
 // Send an error reply to a peer
-void send_xpc_error(const struct broker_context *ctx, xpc_object_t event, int code);
+void send_xpc_error(
+    const struct broker_context *ctx, xpc_object_t event, int code
+);
 
 // Send a network serialization reply to a peer
-void send_xpc_network(const struct broker_context *ctx, xpc_object_t event,
-                      const char *network_name, xpc_object_t network_serialization);
+void send_xpc_network(
+    const struct broker_context *ctx,
+    xpc_object_t event,
+    const char *network_name,
+    xpc_object_t network_serialization
+);
 
 #endif // BROKER_XPC_H

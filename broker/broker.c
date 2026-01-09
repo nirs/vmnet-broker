@@ -5,23 +5,22 @@
 #include <signal.h>
 #include <stdlib.h>
 
-#include "vmnet-broker.h"
-#include "broker-xpc.h"
 #include "broker-network.h"
+#include "broker-xpc.h"
 #include "common.h"
 #include "log.h"
+#include "vmnet-broker.h"
 
 bool verbose = true;
 
 // The context used for main() and signal handlers.
-const struct broker_context main_context = { .name = "main" };
+const struct broker_context main_context = {.name = "main"};
 
 // Time to wait in seconds before shutting down after the broker became idle. We
 // want to keep the network reservation in case a user want to use the same
 // network soon.
 // TODO: Read from user preferences.
 static const int idle_timeout_sec = 30;
-
 
 // Number of connected peers, used to prevent termination when peers are
 // connected. Using signed int to make it easy to detect incorrect counting.
@@ -30,9 +29,8 @@ static int connected_peers;
 // Used to shutdown if the broker is idle for idle_timeout_sec.
 static dispatch_source_t idle_timer;
 
-
 static void on_peer_request(struct broker_context *ctx, xpc_object_t event) {
-    const char* command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
+    const char *command = xpc_dictionary_get_string(event, REQUEST_COMMAND);
     if (command == NULL) {
         WARNF("[%s] invalid request: missing command key", ctx->name);
         send_xpc_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
@@ -44,7 +42,9 @@ static void on_peer_request(struct broker_context *ctx, xpc_object_t event) {
         return;
     }
 
-    const char *network_name = xpc_dictionary_get_string(event, REQUEST_NETWORK_NAME);
+    const char *network_name = xpc_dictionary_get_string(
+        event, REQUEST_NETWORK_NAME
+    );
     if (network_name == NULL) {
         WARNF("[%s] invalid request: missing network_name", ctx->name);
         send_xpc_error(ctx, event, VMNET_BROKER_INVALID_REQUEST);
@@ -52,7 +52,9 @@ static void on_peer_request(struct broker_context *ctx, xpc_object_t event) {
     }
 
     int error = 0;
-    xpc_object_t network_serialization = acquire_network(ctx, network_name, &error);
+    xpc_object_t network_serialization = acquire_network(
+        ctx, network_name, &error
+    );
     if (network_serialization == NULL) {
         send_xpc_error(ctx, event, error);
         return;
@@ -62,7 +64,6 @@ static void on_peer_request(struct broker_context *ctx, xpc_object_t event) {
     xpc_release(network_serialization);
 }
 
-
 static void shutdown_later(const struct broker_context *ctx) {
     DEBUGF("[%s] shutting down in %d seconds", ctx->name, idle_timeout_sec);
 
@@ -70,11 +71,15 @@ static void shutdown_later(const struct broker_context *ctx) {
     // shutdown_later is called when the last peer has disconnected.
     assert(idle_timer == NULL && "idle timer running in shutdown_later");
 
-    idle_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    idle_timer = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue()
+    );
 
     assert(idle_timer != NULL && "failed to create idle timer");
 
-    dispatch_time_t start = dispatch_time(DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC);
+    dispatch_time_t start = dispatch_time(
+        DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC
+    );
     // Allow the system up to 1 second leeway if this can improve power
     // consumption and system performance.
     uint64_t leeway = 1 * NSEC_PER_SEC;
@@ -98,7 +103,11 @@ static void on_peer_connect(struct broker_context *ctx) {
     if (connected_peers == 1) {
         // Create a transaction so launchd will know that we are active and will
         // not try to stop the service to free resources.
-        DEBUGF("[%s] starting transaction to prevent termination while peers are connected", ctx->name);
+        DEBUGF(
+            "[%s] starting transaction to prevent termination while peers "
+            "are connected",
+            ctx->name
+        );
         xpc_transaction_begin();
 
         if (idle_timer) {
@@ -133,7 +142,6 @@ static const struct broker_ops broker_ops = {
     .on_peer_request = on_peer_request,
 };
 
-
 static void setup_signal_handlers(void) {
     DEBUGF("[%s] setting up signal handlers", main_context.name);
 
@@ -146,20 +154,22 @@ static void setup_signal_handlers(void) {
         signal(sig, SIG_IGN);
 
         dispatch_source_t source = dispatch_source_create(
-            DISPATCH_SOURCE_TYPE_SIGNAL,
-            sig,
-            0,
-            dispatch_get_main_queue()
+            DISPATCH_SOURCE_TYPE_SIGNAL, sig, 0, dispatch_get_main_queue()
         );
 
-        // 5. Set the event handler (the "block" that runs when signal is received)
+        // 5. Set the event handler (the "block" that runs when signal is
+        // received)
         dispatch_source_set_event_handler(source, ^{
             INFOF("[%s] received signal %d", main_context.name, sig);
 
             // IMPORTANT: terminating the broker when clients are connected will
             // destroy the bridge.
             if (connected_peers > 0) {
-                WARNF("[%s] %d peers connected - ignoring termination signal", main_context.name, connected_peers);
+                WARNF(
+                    "[%s] %d peers connected - ignoring termination signal",
+                    main_context.name,
+                    connected_peers
+                );
                 return;
             }
 

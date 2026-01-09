@@ -7,15 +7,21 @@
 #include <string.h>
 
 #include "broker-xpc.h"
-#include "vmnet-broker.h"
 #include "log.h"
+#include "vmnet-broker.h"
 
 static xpc_connection_t listener;
 static const struct broker_ops *ops;
 
-static void init_context(struct broker_context *ctx, xpc_connection_t connection) {
+static void
+init_context(struct broker_context *ctx, xpc_connection_t connection) {
     ctx->connection = connection;
-    snprintf(ctx->name, sizeof(ctx->name), "peer %d", xpc_connection_get_pid(connection));
+    snprintf(
+        ctx->name,
+        sizeof(ctx->name),
+        "peer %d",
+        xpc_connection_get_pid(connection)
+    );
     memset(ctx->networks, 0, sizeof(ctx->networks));
     ctx->network_count = 0;
 }
@@ -42,7 +48,9 @@ static void handle_connection(xpc_connection_t connection) {
                     ops->on_peer_disconnect(&ctx);
                 }
             } else {
-                const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
+                const char *desc = xpc_dictionary_get_string(
+                    event, XPC_ERROR_KEY_DESCRIPTION
+                );
                 WARNF("[%s] unexpected error: %s", ctx.name, desc);
             }
         } else if (type == XPC_TYPE_DICTIONARY) {
@@ -56,7 +64,8 @@ static void handle_connection(xpc_connection_t connection) {
     xpc_connection_resume(connection);
 }
 
-static xpc_object_t create_reply(const struct broker_context *ctx, xpc_object_t event) {
+static xpc_object_t
+create_reply(const struct broker_context *ctx, xpc_object_t event) {
     xpc_object_t reply = xpc_dictionary_create_reply(event);
     if (reply == NULL) {
         // Event does not include the return address.
@@ -67,7 +76,9 @@ static xpc_object_t create_reply(const struct broker_context *ctx, xpc_object_t 
     return reply;
 }
 
-void send_xpc_error(const struct broker_context *ctx, xpc_object_t event, int code) {
+void send_xpc_error(
+    const struct broker_context *ctx, xpc_object_t event, int code
+) {
     DEBUGF("[%s] send error to peer: code=%d", ctx->name, code);
 
     xpc_object_t reply = create_reply(ctx, event);
@@ -81,8 +92,12 @@ void send_xpc_error(const struct broker_context *ctx, xpc_object_t event, int co
     xpc_release(reply);
 }
 
-void send_xpc_network(const struct broker_context *ctx, xpc_object_t event,
-                      const char *network_name, xpc_object_t network_serialization) {
+void send_xpc_network(
+    const struct broker_context *ctx,
+    xpc_object_t event,
+    const char *network_name,
+    xpc_object_t network_serialization
+) {
     DEBUGF("[%s] send network '%s' to peer", ctx->name, network_name);
 
     xpc_object_t reply = create_reply(ctx, event);
@@ -95,7 +110,9 @@ void send_xpc_network(const struct broker_context *ctx, xpc_object_t event,
     xpc_release(reply);
 }
 
-int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops *broker_ops) {
+int start_xpc_listener(
+    const struct broker_context *ctx, const struct broker_ops *broker_ops
+) {
     if (broker_ops == NULL) {
         return -1;
     }
@@ -122,7 +139,9 @@ int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
             // We don't expect any non fatal errors.
-            const char *desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
+            const char *desc = xpc_dictionary_get_string(
+                event, XPC_ERROR_KEY_DESCRIPTION
+            );
             ERRORF("[%s] listener failed: %s", ctx->name, desc);
             exit(EXIT_FAILURE);
         } else if (type == XPC_TYPE_CONNECTION) {
@@ -130,7 +149,9 @@ int start_xpc_listener(const struct broker_context *ctx, const struct broker_ops
             // Use the same queue for all peers. This ensures that we don't need
             // any locks when modifying internal state, and all events are
             // serialized.
-            xpc_connection_set_target_queue(connection, dispatch_get_main_queue());
+            xpc_connection_set_target_queue(
+                connection, dispatch_get_main_queue()
+            );
             handle_connection(connection);
         }
     });

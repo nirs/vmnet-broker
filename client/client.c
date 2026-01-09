@@ -20,7 +20,9 @@ static void connect_to_broker(void) {
     xpc_connection_resume(connection);
 }
 
-xpc_object_t vmnet_broker_acquire_network(const char *network_name, vmnet_broker_return_t *status) {
+xpc_object_t vmnet_broker_acquire_network(
+    const char *network_name, vmnet_broker_return_t *status
+) {
     if (connection == NULL) {
         connect_to_broker();
     }
@@ -29,7 +31,9 @@ xpc_object_t vmnet_broker_acquire_network(const char *network_name, vmnet_broker
     xpc_dictionary_set_string(message, REQUEST_COMMAND, COMMAND_ACQUIRE);
     xpc_dictionary_set_string(message, REQUEST_NETWORK_NAME, network_name);
 
-    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(connection, message);
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(
+        connection, message
+    );
     xpc_release(message);
     message = NULL;
 
