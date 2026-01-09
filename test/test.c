@@ -20,6 +20,19 @@ bool verbose = true;
 
 #define NANOSECONDS_PER_SECOND 1000000000ULL
 
+// Test result output for test runners (stdout).
+static void ok(void) {
+    fflush(stderr);
+    printf("ok\n");
+    exit(EXIT_SUCCESS);
+}
+
+static void fail(const char *step, int code) {
+    fflush(stderr);
+    printf("fail %s %d\n", step, code);
+    exit(EXIT_FAILURE);
+}
+
 // Command line options
 static struct {
     const char *network_name;
@@ -52,6 +65,10 @@ static void usage(int code)
         "\n"
         "Arguments:\n"
         "    network_name   Network to acquire (default: shared)\n"
+        "\n"
+        "Output (stdout):\n"
+        "    ok                 Test passed\n"
+        "    fail <step> <code> Test failed at step with error code\n"
         "\n",
         stderr);
 
@@ -114,9 +131,6 @@ static dispatch_queue_t vmnet_queue;
 // Used to wait for signals.
 static int kq = -1;
 
-// Exit status.
-static int status;
-
 static void start_interface_from_network(vmnet_network_ref network) {
     INFO("starting vmnet interface from network");
 
@@ -129,7 +143,7 @@ static void start_interface_from_network(vmnet_network_ref network) {
         network, desc, vmnet_queue, ^(vmnet_return_t start_status, xpc_object_t param){
         if (start_status != VMNET_SUCCESS) {
             ERRORF("failed to start vmnet interface with network: (%d) %s", start_status, vmnet_strerror(start_status));
-            exit(EXIT_FAILURE);
+            fail("start_interface", start_status);
         }
 
         xpc_dictionary_apply(param, ^bool(const char *key, xpc_object_t value) {
@@ -172,14 +186,14 @@ static void stop_interface(void)
         interface, vmnet_queue, ^(vmnet_return_t stop_status){
         if (stop_status != VMNET_SUCCESS) {
             ERRORF("failed to stop vmnet interface: (%d) %s", stop_status, vmnet_strerror(stop_status));
-            exit(EXIT_FAILURE);
+            fail("stop_interface", stop_status);
         }
         dispatch_semaphore_signal(completed);
     });
 
     if (vmnet_status != VMNET_SUCCESS) {
-        ERRORF("failed to stop vment interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
-        exit(EXIT_FAILURE);
+        ERRORF("failed to stop vmnet interface: (%d) %s", vmnet_status, vmnet_strerror(vmnet_status));
+        fail("stop_interface", vmnet_status);
     }
 
     dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
@@ -225,7 +239,8 @@ static void setup_kq(void)
     }
 }
 
-static void wait_for_termination(void)
+// Returns 0 on success (signal received), or errno on error.
+static int wait_for_termination(void)
 {
     INFO("waiting for termination");
 
@@ -234,16 +249,13 @@ static void wait_for_termination(void)
     while (1) {
         int n = kevent(kq, NULL, 0, events, 1, NULL);
         if (n < 0) {
-            ERRORF("kevent: %s", strerror(errno));
-            status = EXIT_FAILURE;
-            break;
+            int err = errno;
+            ERRORF("kevent: %s", strerror(err));
+            return err;
         }
-        if (n > 0) {
-            if (events[0].filter == EVFILT_SIGNAL) {
-                INFOF("received signal %s", strsignal(events[0].ident));
-                status = EXIT_SUCCESS;
-                break;
-            }
+        if (n > 0 && events[0].filter == EVFILT_SIGNAL) {
+            INFOF("received signal %s", strsignal(events[0].ident));
+            return 0;
         }
     }
 }
@@ -259,7 +271,7 @@ static void test_network(const char *network_name) {
     if (serialization == NULL) {
         ERRORF("failed to acquire network '%s': (%d) %s",
             network_name, broker_status, vmnet_broker_strerror(broker_status));
-        exit(EXIT_FAILURE);
+        fail("acquire_network", broker_status);
     }
 
     uint64_t elapsed_nanos = end_time - start_time;
@@ -274,7 +286,7 @@ static void test_network(const char *network_name) {
     if (network == NULL) {
         ERRORF("failed to create network from serialization: (%d) %s",
             vmnet_status, vmnet_strerror(vmnet_status));
-        exit(EXIT_FAILURE);
+        fail("create_network", vmnet_status);
     }
 
     INFOF("created network from serialization: status=%d (%s)",
@@ -289,11 +301,16 @@ static void test_network(const char *network_name) {
     start_interface_from_network(network);
     CFRelease(network);
 
+    int wait_error = 0;
     if (!opt.quick) {
-        wait_for_termination();
+        wait_error = wait_for_termination();
     }
 
     stop_interface();
+
+    if (wait_error) {
+        fail("kevent", wait_error);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -305,6 +322,5 @@ int main(int argc, char *argv[]) {
 
     setup_kq();
     test_network(opt.network_name);
-
-    return status;
+    ok();
 }
