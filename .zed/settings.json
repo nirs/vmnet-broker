@@ -1,0 +1,7 @@
+{
+  "file_types": {
+    // Silence bogus warnings, Zed does not handle multiple YAML
+    // documents correctly.
+    "Clangd": [".clangd"],
+  },
+}
