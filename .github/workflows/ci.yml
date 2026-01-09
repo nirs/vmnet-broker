@@ -9,6 +9,19 @@ on:
     - cron: '0 3 * * *'  # Daily at 3am UTC (temporary: detect upstream PR changes)
 
 jobs:
+  lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: brew install clang-format
+
+      - name: Check formatting
+        run: |
+          make fmt
+          git diff --exit-code || (echo "Code is not formatted. Run 'make fmt' and commit." && exit 1)
+
   test:
     runs-on: macos-26
     steps:
