@@ -11,7 +11,7 @@
   - start interface (validated the acquired network)
   - stop interface (clean up before exit)
 - [x] Acquire both "shared" and "host"
-- [ ] Acquire same network multiple times
+- [x] Acquire same network multiple times
 - [ ] Multiple peers sharing same network
 
 ## Testing network configuration files
