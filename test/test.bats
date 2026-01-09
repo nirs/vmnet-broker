@@ -5,6 +5,26 @@
 # Require 1.5.0 for --separate-stderr flag (so $output contains only stdout)
 bats_require_minimum_version 1.5.0
 
+# Check peer results and print YAML-formatted output.
+# Usage: check_peers <tmpdir> <peer_count>
+check_peers() {
+    local tmpdir=$1
+    local count=$2
+    local failed=0
+
+    for i in $(seq 1 "$count"); do
+        if ! grep -q "^ok$" "$tmpdir/peer$i.out"; then
+            failed=1
+        fi
+        echo "peer$i:"
+        echo "  stdout: |"
+        sed "s/^/    /" "$tmpdir/peer$i.out"
+        echo "  stderr: |"
+        sed "s/^/    /" "$tmpdir/peer$i.err"
+    done
+    [ $failed -eq 0 ]
+}
+
 @test "acquire shared network" {
     ./test-c --quick shared
 }
@@ -37,29 +57,19 @@ bats_require_minimum_version 1.5.0
     [ "$output" = "ok" ]
 }
 
+@test "multiple peers with different networks" {
+    ./test-c --quick shared > "$BATS_TEST_TMPDIR/peer1.out" 2>"$BATS_TEST_TMPDIR/peer1.err" &
+    ./test-c --quick host > "$BATS_TEST_TMPDIR/peer2.out" 2>"$BATS_TEST_TMPDIR/peer2.err" &
+    wait
+    run --separate-stderr check_peers "$BATS_TEST_TMPDIR" 2
+    [ "$status" -eq 0 ]
+}
+
 @test "multiple peers sharing same network" {
-    # Run 3 clients concurrently, all using shared network
-    run --separate-stderr bash -c '
-        tmpdir="$1"
-        for i in 1 2 3; do
-            ./test-c --quick shared > "$tmpdir/peer$i.out" 2>"$tmpdir/peer$i.err" &
-        done
-
-        wait
-
-        failed=0
-        for i in 1 2 3; do
-            if ! grep -q "^ok$" "$tmpdir/peer$i.out"; then
-                failed=1
-            fi
-            echo "peer$i:"
-            echo "  stdout: |"
-            sed "s/^/    /" "$tmpdir/peer$i.out"
-            echo "  stderr: |"
-            sed "s/^/    /" "$tmpdir/peer$i.err"
-        done
-        [ $failed -eq 0 ]
-    ' _ "$BATS_TEST_TMPDIR"
-
+    for i in 1 2 3; do
+        ./test-c --quick shared > "$BATS_TEST_TMPDIR/peer$i.out" 2>"$BATS_TEST_TMPDIR/peer$i.err" &
+    done
+    wait
+    run --separate-stderr check_peers "$BATS_TEST_TMPDIR" 3
     [ "$status" -eq 0 ]
 }
