@@ -6,7 +6,9 @@
     "files.trimTrailingWhitespace": true
   },
   "[c]": {
-    "files.trimTrailingWhitespace": true
+    "files.trimTrailingWhitespace": true,
+    "editor.defaultFormatter": "xaver.clang-format",
+    "editor.formatOnSave": true
   },
   "[go]": {
     "files.trimTrailingWhitespace": true
