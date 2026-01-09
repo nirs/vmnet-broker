@@ -33,25 +33,27 @@ bats_require_minimum_version 1.5.0
 
 @test "multiple peers sharing same network" {
     # Run 3 clients concurrently, all using shared network
-    ./test-c --quick shared > /tmp/peer1.out 2>/dev/null &
-    pid1=$!
-    ./test-c --quick shared > /tmp/peer2.out 2>/dev/null &
-    pid2=$!
-    ./test-c --quick shared > /tmp/peer3.out 2>/dev/null &
-    pid3=$!
+    run --separate-stderr bash -c '
+        tmpdir="$1"
+        for i in 1 2 3; do
+            ./test-c --quick shared > "$tmpdir/peer$i.out" 2>"$tmpdir/peer$i.err" &
+        done
 
-    # Wait for all and collect exit codes
-    wait $pid1; status1=$?
-    wait $pid2; status2=$?
-    wait $pid3; status3=$?
+        wait
 
-    # All must succeed
-    [ "$status1" -eq 0 ]
-    [ "$status2" -eq 0 ]
-    [ "$status3" -eq 0 ]
+        failed=0
+        for i in 1 2 3; do
+            if ! grep -q "^ok$" "$tmpdir/peer$i.out"; then
+                failed=1
+            fi
+            echo "peer$i:"
+            echo "  stdout: |"
+            sed "s/^/    /" "$tmpdir/peer$i.out"
+            echo "  stderr: |"
+            sed "s/^/    /" "$tmpdir/peer$i.err"
+        done
+        [ $failed -eq 0 ]
+    ' _ "$BATS_TEST_TMPDIR"
 
-    # All must output "ok"
-    [ "$(cat /tmp/peer1.out)" = "ok" ]
-    [ "$(cat /tmp/peer2.out)" = "ok" ]
-    [ "$(cat /tmp/peer3.out)" = "ok" ]
+    [ "$status" -eq 0 ]
 }
