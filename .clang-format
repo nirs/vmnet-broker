@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: The vmnet-broker authors
+# SPDX-License-Identifier: Apache-2.0
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+
+# When line is too long, break after open paren with block indent:
+#
+#   result = some_function(
+#       arg1, arg2, arg3
+#   );
+#
+# Instead of aligning with open paren:
+#
+#   result = some_function(arg1,
+#                          arg2,
+#                          arg3);
+#
+AlignAfterOpenBracket: BlockIndent
+
+# One argument per line when it doesn't fit
+BinPackArguments: false
+BinPackParameters: false
+
+# When a line is too long, prefer breaking function arguments:
+#
+#   timer = dispatch_source_create(   <-- break here (penalty 1)
+#       TYPE,
+#       0,
+#       queue
+#   );
+#
+# Instead of breaking after the assignment:
+#
+#   timer =                            <-- not here (penalty 1000)
+#       dispatch_source_create(TYPE, 0, queue);
+#
+PenaltyBreakAssignment: 1000
+PenaltyBreakBeforeFirstCallParameter: 1
+
+# Objective-C blocks use same indent
+ObjCBlockIndentWidth: 4
+
+# Sort includes alphabetically within groups
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# Pointer style: char *p
+PointerAlignment: Right

@@ -39,7 +39,7 @@ struct network_config {
 // Shared network used by one or more peers.
 struct network {
     char *name;
-    int peers;  // Number of peers using this network
+    int peers; // Number of peers using this network
     vmnet_network_ref ref;
     xpc_object_t serialization;
 };
@@ -68,11 +68,17 @@ static vmnet_network_configuration_ref create_network_configuration(
     const struct network_config *network_config
 ) {
     vmnet_return_t status;
-    vmnet_network_configuration_ref configuration = vmnet_network_configuration_create(
-        network_config->mode, &status);
+    vmnet_network_configuration_ref
+        configuration = vmnet_network_configuration_create(
+            network_config->mode, &status
+        );
     if (configuration == NULL) {
-        WARNF("[%s] failed to create network configuration: (%d) %s",
-            ctx->name, status, vmnet_strerror(status));
+        WARNF(
+            "[%s] failed to create network configuration: (%d) %s",
+            ctx->name,
+            status,
+            vmnet_strerror(status)
+        );
         return NULL;
     }
 
@@ -87,23 +93,36 @@ static vmnet_network_configuration_ref create_network_configuration(
     if (network_config->subnet && network_config->mask) {
         struct in_addr subnet_addr;
         if (inet_pton(AF_INET, network_config->subnet, &subnet_addr) == 0) {
-            WARNF("[%s] failed to parse subnet '%s': %s",
-                ctx->name, network_config->subnet, strerror(errno));
+            WARNF(
+                "[%s] failed to parse subnet '%s': %s",
+                ctx->name,
+                network_config->subnet,
+                strerror(errno)
+            );
             goto error;
         }
 
         struct in_addr subnet_mask;
         if (inet_pton(AF_INET, network_config->mask, &subnet_mask) == 0) {
-            WARNF("[%s] failed to parse mask '%s': %s",
-                ctx->name, network_config->mask, strerror(errno));
+            WARNF(
+                "[%s] failed to parse mask '%s': %s",
+                ctx->name,
+                network_config->mask,
+                strerror(errno)
+            );
             goto error;
         }
 
         status = vmnet_network_configuration_set_ipv4_subnet(
-            configuration, &subnet_addr, &subnet_mask);
+            configuration, &subnet_addr, &subnet_mask
+        );
         if (status != VMNET_SUCCESS) {
-            WARNF("[%s] failed to set ipv4 subnet: (%d) %s",
-                ctx->name, status, vmnet_strerror(status));
+            WARNF(
+                "[%s] failed to set ipv4 subnet: (%d) %s",
+                ctx->name,
+                status,
+                vmnet_strerror(status)
+            );
             goto error;
         }
     }
@@ -118,9 +137,7 @@ error:
 }
 
 static const struct network_config *find_network_config(
-    const struct broker_context *ctx,
-    const char *name,
-    int *error
+    const struct broker_context *ctx, const char *name, int *error
 ) {
     for (size_t i = 0; i < ARRAY_SIZE(builtin_networks); i++) {
         if (strcmp(builtin_networks[i].name, name) == 0) {
@@ -136,7 +153,9 @@ static const struct network_config *find_network_config(
 
 // MARK: - Network functions
 
-static void free_network(struct network *_Nonnull network, const struct broker_context *_Nonnull ctx) {
+static void free_network(
+    struct network *_Nonnull network, const struct broker_context *_Nonnull ctx
+) {
     if (network == NULL) {
         return;
     }
@@ -144,8 +163,16 @@ static void free_network(struct network *_Nonnull network, const struct broker_c
     if (network->ref) {
         struct network_info info;
         network_info(network->ref, &info);
-        INFOF("[%s] deleted network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-            ctx->name, network->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+        INFOF(
+            "[%s] deleted network '%s' subnet '%s' mask '%s' ipv6_prefix "
+            "'%s' prefix_len %d",
+            ctx->name,
+            network->name,
+            info.subnet,
+            info.mask,
+            info.ipv6_prefix,
+            info.prefix_len
+        );
         CFRelease(network->ref);
     }
     if (network->serialization) {
@@ -166,13 +193,19 @@ static struct network *create_network(
 
     network = calloc(1, sizeof(*network));
     if (network == NULL) {
-        WARNF("[%s] failed to allocate network: %s", ctx->name, strerror(errno));
+        WARNF(
+            "[%s] failed to allocate network: %s", ctx->name, strerror(errno)
+        );
         goto failure;
     }
 
     network->name = strdup(config->name);
     if (network->name == NULL) {
-        WARNF("[%s] failed to allocate network name: %s", ctx->name, strerror(errno));
+        WARNF(
+            "[%s] failed to allocate network name: %s",
+            ctx->name,
+            strerror(errno)
+        );
         goto failure;
     }
 
@@ -185,18 +218,38 @@ static struct network *create_network(
     CFRelease(configuration);
     configuration = NULL;
     if (network->ref == NULL) {
-        WARNF("[%s] failed to create network ref: (%d) %s", ctx->name, status, vmnet_strerror(status));
+        WARNF(
+            "[%s] failed to create network ref: (%d) %s",
+            ctx->name,
+            status,
+            vmnet_strerror(status)
+        );
         goto failure;
     }
 
     struct network_info info;
     network_info(network->ref, &info);
-    INFOF("[%s] created network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' prefix_len %d",
-        ctx->name, config->name, info.subnet, info.mask, info.ipv6_prefix, info.prefix_len);
+    INFOF(
+        "[%s] created network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' "
+        "prefix_len %d",
+        ctx->name,
+        config->name,
+        info.subnet,
+        info.mask,
+        info.ipv6_prefix,
+        info.prefix_len
+    );
 
-    network->serialization = vmnet_network_copy_serialization(network->ref, &status);
+    network->serialization = vmnet_network_copy_serialization(
+        network->ref, &status
+    );
     if (network->serialization == NULL) {
-        WARNF("[%s] failed to create network serialization: (%d) %s", ctx->name, status, vmnet_strerror(status));
+        WARNF(
+            "[%s] failed to create network serialization: (%d) %s",
+            ctx->name,
+            status,
+            vmnet_strerror(status)
+        );
         goto failure;
     }
 
@@ -217,7 +270,8 @@ failure:
 
 // Called only by CFDictionary when adding to registry. The network is already
 // allocated so this does nothing.
-static const void *registry_retain(CFAllocatorRef allocator, const void *value) {
+static const void *
+registry_retain(CFAllocatorRef allocator, const void *value) {
     (void)allocator;
     return value;
 }
@@ -237,17 +291,16 @@ static const CFDictionaryValueCallBacks registry_value_callbacks = {
 static void init_registry(void) {
     if (registry == NULL) {
         registry = CFDictionaryCreateMutable(
-            NULL,
-            0,
-            &kCFTypeDictionaryKeyCallBacks,
-            &registry_value_callbacks);
+            NULL, 0, &kCFTypeDictionaryKeyCallBacks, &registry_value_callbacks
+        );
     }
 }
 
 static void release_registry(const struct broker_context *ctx) {
     if (registry) {
         DEBUGF("[%s] shutdown all networks", ctx->name);
-        // Releasing the registry will call network_registry_release for each value
+        // Releasing the registry will call network_registry_release for each
+        // value
         CFRelease(registry);
         registry = NULL;
     }
@@ -256,7 +309,8 @@ static void release_registry(const struct broker_context *ctx) {
 // MARK: - Peer ownership helpers
 
 // Check if peer already owns a network.
-static bool peer_owns_network(const struct broker_context *ctx, const struct network *net) {
+static bool
+peer_owns_network(const struct broker_context *ctx, const struct network *net) {
     for (int i = 0; i < ctx->network_count; i++) {
         if (ctx->networks[i] == net) {
             return true;
@@ -268,7 +322,11 @@ static bool peer_owns_network(const struct broker_context *ctx, const struct net
 // Assumes peer does not already own the network (caller must check first).
 static bool can_add_network_to_peer(struct broker_context *ctx, int *error) {
     if (ctx->network_count >= MAX_PEER_NETWORKS) {
-        WARNF("[%s] peer has too many networks (%d)", ctx->name, ctx->network_count);
+        WARNF(
+            "[%s] peer has too many networks (%d)",
+            ctx->name,
+            ctx->network_count
+        );
         if (error) {
             *error = VMNET_BROKER_INTERNAL_ERROR;
         }
@@ -279,7 +337,9 @@ static bool can_add_network_to_peer(struct broker_context *ctx, int *error) {
 
 // Ensure peer owns the network, adding it if not already owned.
 // Returns true on success, false on failure.
-static bool update_peer_ownership(struct broker_context *ctx, struct network *net, int *error) {
+static bool update_peer_ownership(
+    struct broker_context *ctx, struct network *net, int *error
+) {
     if (peer_owns_network(ctx, net)) {
         return true;
     }
@@ -290,16 +350,21 @@ static bool update_peer_ownership(struct broker_context *ctx, struct network *ne
 
     ctx->networks[ctx->network_count++] = net;
     net->peers++;
-    INFOF("[%s] acquired network '%s' (peers %d)", ctx->name, net->name, net->peers);
+    INFOF(
+        "[%s] acquired network '%s' (peers %d)",
+        ctx->name,
+        net->name,
+        net->peers
+    );
 
     return true;
 }
 
 // MARK: - Public API
 
-xpc_object_t acquire_network(struct broker_context *ctx,
-                             const char *network_name,
-                             int *error) {
+xpc_object_t acquire_network(
+    struct broker_context *ctx, const char *network_name, int *error
+) {
     xpc_object_t result = NULL;
     CFStringRef key = NULL;
 
@@ -314,7 +379,9 @@ xpc_object_t acquire_network(struct broker_context *ctx,
             goto cleanup;
         }
 
-        const struct network_config *config = find_network_config(ctx, network_name, error);
+        const struct network_config *config = find_network_config(
+            ctx, network_name, error
+        );
         if (config == NULL) {
             goto cleanup;
         }
@@ -345,10 +412,17 @@ void release_peer_networks(struct broker_context *ctx) {
         struct network *net = ctx->networks[i];
 
         net->peers--;
-        INFOF("[%s] released network '%s' (peers %d)", ctx->name, net->name, net->peers);
+        INFOF(
+            "[%s] released network '%s' (peers %d)",
+            ctx->name,
+            net->name,
+            net->peers
+        );
 
         if (net->peers == 0) {
-            CFStringRef key = CFStringCreateWithCString(NULL, net->name, kCFStringEncodingUTF8);
+            CFStringRef key = CFStringCreateWithCString(
+                NULL, net->name, kCFStringEncodingUTF8
+            );
             CFDictionaryRemoveValue(registry, key);
             CFRelease(key);
             // Note: free_network is called by registry_release callback

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: The vmnet-broker authors
 // SPDX-License-Identifier: Apache-2.0
 
-#include <arpa/inet.h>
 #include "common.h"
+#include <arpa/inet.h>
 
 void network_info(vmnet_network_ref network, struct network_info *info) {
     struct in_addr subnet;
@@ -13,12 +13,11 @@ void network_info(vmnet_network_ref network, struct network_info *info) {
     vmnet_network_get_ipv6_prefix(network, &ipv6_prefix, &info->prefix_len);
 
     inet_ntop(AF_INET, &subnet, info->subnet, INET_ADDRSTRLEN),
-    inet_ntop(AF_INET, &mask, info->mask, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &mask, info->mask, INET_ADDRSTRLEN);
     inet_ntop(AF_INET6, &ipv6_prefix, info->ipv6_prefix, INET6_ADDRSTRLEN);
 }
 
-const char *vmnet_strerror(vmnet_return_t status)
-{
+const char *vmnet_strerror(vmnet_return_t status) {
     switch (status) {
     case VMNET_SUCCESS:
         return "VMNET_SUCCESS";

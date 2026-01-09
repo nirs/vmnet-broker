@@ -8,12 +8,12 @@
 
 // Acquire a network by name, creating it if necessary.
 // Returns a retained xpc_object_t serialization on success, or NULL on failure.
-// The caller is responsible for releasing the returned object using xpc_release().
-// On failure, *error is set to the error code if error is not NULL.
-// Increments the network peer count; call release_network when done.
-xpc_object_t acquire_network(struct broker_context *ctx,
-                             const char *network_name,
-                             int *error);
+// The caller is responsible for releasing the returned object using
+// xpc_release(). On failure, *error is set to the error code if error is not
+// NULL. Increments the network peer count; call release_network when done.
+xpc_object_t acquire_network(
+    struct broker_context *ctx, const char *network_name, int *error
+);
 
 // Release all networks acquired by a peer.
 // Decrements the peer count for each network.
