@@ -21,7 +21,7 @@
 bool verbose = true;
 
 // Interfaces started by start_interface().
-#define MAX_INTERFACES 8
+#define MAX_INTERFACES 16
 
 struct interface {
     const char *network_name;
