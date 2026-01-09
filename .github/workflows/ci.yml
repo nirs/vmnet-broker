@@ -30,8 +30,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-build-
 
-      - name: Install clang-format
-        run: brew install clang-format
+      - name: Install dependencies
+        run: brew install clang-format bats-core
 
       - name: Cache Swift packages
         uses: actions/cache@v4

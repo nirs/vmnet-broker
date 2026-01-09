@@ -4,7 +4,7 @@
 
 - [x] Acquire "shared" network
 - [x] Acquire "host" network
-- [ ] Acquire non-existing network
+- [x] Acquire non-existing network
 - [ ] Extend test.c to receive multiple networks
 - [ ] Split acquire and clean up operations so we can acquire multiple networks at the same time.
   - acquire network
