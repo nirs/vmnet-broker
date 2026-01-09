@@ -306,6 +306,31 @@ static void release_registry(const struct broker_context *ctx) {
     }
 }
 
+static struct network *registry_get(const char *name) {
+    CFStringRef key = CFStringCreateWithCString(
+        NULL, name, kCFStringEncodingUTF8
+    );
+    struct network *net = (struct network *)CFDictionaryGetValue(registry, key);
+    CFRelease(key);
+    return net;
+}
+
+static void registry_set(const char *name, struct network *net) {
+    CFStringRef key = CFStringCreateWithCString(
+        NULL, name, kCFStringEncodingUTF8
+    );
+    CFDictionarySetValue(registry, key, net);
+    CFRelease(key);
+}
+
+static void registry_remove(const char *name) {
+    CFStringRef key = CFStringCreateWithCString(
+        NULL, name, kCFStringEncodingUTF8
+    );
+    CFDictionaryRemoveValue(registry, key);
+    CFRelease(key);
+}
+
 // MARK: - Peer ownership helpers
 
 // Check if peer already owns a network.
@@ -365,46 +390,35 @@ static bool update_peer_ownership(
 xpc_object_t acquire_network(
     struct broker_context *ctx, const char *network_name, int *error
 ) {
-    xpc_object_t result = NULL;
-    CFStringRef key = NULL;
-
     init_registry();
 
-    key = CFStringCreateWithCString(NULL, network_name, kCFStringEncodingUTF8);
-
-    struct network *net = (struct network *)CFDictionaryGetValue(registry, key);
+    struct network *net = registry_get(network_name);
 
     if (net == NULL) {
         if (!can_add_network_to_peer(ctx, error)) {
-            goto cleanup;
+            return NULL;
         }
 
         const struct network_config *config = find_network_config(
             ctx, network_name, error
         );
         if (config == NULL) {
-            goto cleanup;
+            return NULL;
         }
 
         net = create_network(ctx, config, error);
         if (net == NULL) {
-            goto cleanup;
+            return NULL;
         }
 
-        CFDictionarySetValue(registry, key, net);
+        registry_set(network_name, net);
     }
 
     if (!update_peer_ownership(ctx, net, error)) {
-        goto cleanup;
+        return NULL;
     }
 
-    result = xpc_retain(net->serialization);
-
-cleanup:
-    if (key) {
-        CFRelease(key);
-    }
-    return result;
+    return xpc_retain(net->serialization);
 }
 
 void release_peer_networks(struct broker_context *ctx) {
@@ -420,11 +434,7 @@ void release_peer_networks(struct broker_context *ctx) {
         );
 
         if (net->peers == 0) {
-            CFStringRef key = CFStringCreateWithCString(
-                NULL, net->name, kCFStringEncodingUTF8
-            );
-            CFDictionaryRemoveValue(registry, key);
-            CFRelease(key);
+            registry_remove(net->name);
             // Note: free_network is called by registry_release callback
         }
     }
