@@ -12,7 +12,7 @@
   - stop interface (clean up before exit)
 - [x] Acquire both "shared" and "host"
 - [x] Acquire same network multiple times
-- [ ] Multiple peers sharing same network
+- [x] Multiple peers sharing same network
 
 ## Testing network configuration files
 

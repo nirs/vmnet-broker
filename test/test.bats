@@ -30,3 +30,28 @@ bats_require_minimum_version 1.5.0
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "multiple peers sharing same network" {
+    # Run 3 clients concurrently, all using shared network
+    ./test-c --quick shared > /tmp/peer1.out 2>/dev/null &
+    pid1=$!
+    ./test-c --quick shared > /tmp/peer2.out 2>/dev/null &
+    pid2=$!
+    ./test-c --quick shared > /tmp/peer3.out 2>/dev/null &
+    pid3=$!
+
+    # Wait for all and collect exit codes
+    wait $pid1; status1=$?
+    wait $pid2; status2=$?
+    wait $pid3; status3=$?
+
+    # All must succeed
+    [ "$status1" -eq 0 ]
+    [ "$status2" -eq 0 ]
+    [ "$status3" -eq 0 ]
+
+    # All must output "ok"
+    [ "$(cat /tmp/peer1.out)" = "ok" ]
+    [ "$(cat /tmp/peer2.out)" = "ok" ]
+    [ "$(cat /tmp/peer3.out)" = "ok" ]
+}
