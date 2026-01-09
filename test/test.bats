@@ -31,6 +31,12 @@ bats_require_minimum_version 1.5.0
     [ "$output" = "ok" ]
 }
 
+@test "acquire same network 9 times (exceeds MAX_PEER_NETWORKS)" {
+    run --separate-stderr ./test-c --quick shared shared shared shared shared shared shared shared shared
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "multiple peers sharing same network" {
     # Run 3 clients concurrently, all using shared network
     run --separate-stderr bash -c '
