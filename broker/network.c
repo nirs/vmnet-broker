@@ -408,8 +408,8 @@ cleanup:
 }
 
 void release_peer_networks(struct broker_context *ctx) {
-    for (int i = 0; i < ctx->network_count; i++) {
-        struct network *net = ctx->networks[i];
+    while (ctx->network_count) {
+        struct network *net = ctx->networks[--ctx->network_count];
 
         net->peers--;
         INFOF(
@@ -428,7 +428,6 @@ void release_peer_networks(struct broker_context *ctx) {
             // Note: free_network is called by registry_release callback
         }
     }
-    ctx->network_count = 0;
 }
 
 // Shutdown all networks in the registry.
