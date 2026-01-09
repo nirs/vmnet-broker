@@ -6,9 +6,9 @@ import VmnetBroker
 import vmnet
 import vmnet_broker
 
-/// Test install vmnet-broker (require installing the vmnet-broker launchd daemon).
-@Suite("VmnetBroker validation")
-struct VmnetBrokerTests {
+/// Test installed vmnet-broker (require installing the vmnet-broker launchd daemon).
+@Suite("VmnetBroker acquireNetwork")
+struct AcquireNetworkTests {
 
     /// Test acquiring a valid network
     @Test
@@ -26,10 +26,18 @@ struct VmnetBrokerTests {
             Unmanaged<AnyObject>.fromOpaque(UnsafeRawPointer(network)).release()
         }
     }
+
+    /// Test acquiring a non-existing network returns notFound error
+    @Test
+    func nonExistingNetwork() throws {
+        #expect(throws: VmnetBroker.Error.notFound) {
+            try VmnetBroker.acquireNetwork(named: "no-such-network")
+        }
+    }
 }
 
 @Suite("VmnetBroker.Error validation")
-struct VmnetBrokerErrorTests {
+struct ErrorTests {
 
     /// Validates creating from existing C library constants.
     @Test
