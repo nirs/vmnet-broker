@@ -25,6 +25,19 @@ func TestAcquireNetwork(t *testing.T) {
 			t.Fatal("Expected valid serialization pointer, got nil")
 		}
 	})
+
+	t.Run("NonExistingNetwork", func(t *testing.T) {
+		s, err := vmnet_broker.AcquireNetwork("no-such-network")
+		if err == nil {
+			t.Fatal("Expected error for non-existing network, got success")
+		}
+		if s != nil {
+			t.Fatal("Expected nil serialization on error, got non-nil")
+		}
+		if !errors.Is(err, vmnet_broker.ErrNotFound) {
+			t.Fatalf("Expected ErrNotFound, got: %v", err)
+		}
+	})
 }
 
 func TestError(t *testing.T) {
