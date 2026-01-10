@@ -90,8 +90,8 @@ if (serialization == NULL) {
 }
 ```
 
-- [client](vmnet-broker.h)
-- [example](test.c)
+- [client](include/vmnet-broker.h)
+- [example](test/test.c)
 
 ### Swift
 
