@@ -56,6 +56,8 @@ existing one if other VMs are already using it. When your application exits, the
 broker detects the disconnection and cleans up automatically, deleting the
 network when the last VM disconnects.
 
+![vmnet-broker architecture](media/architecture.svg)
+
 ### For developers
 
 - **No XPC service code.** Acquire a network with a single function call. Client
