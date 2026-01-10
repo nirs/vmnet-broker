@@ -71,8 +71,8 @@ network when the last VM disconnects.
 
 - **One broker for all tools.** A single vmnet-broker replaces separate XP
   services for each project.
-- **Cross-project networking.** VMs from lima, podman, vfkit, and other tools
-  can share the same network and can communicate freely.
+- **Cross-project networking.** VMs from lima, podman, vfkit, minikube, and
+  other tools can share the same network and can communicate freely.
 - **Maximum performance.** All applications benefit from native vmnet
   performance in macOS 26.
 
@@ -237,6 +237,16 @@ vfkit --device virtio-net,vment,network=shared ...
 The virtual machine will use the "shared" builtin network. If you start multiple
 instances they will use the same network and can communicate.
 
+### Using with Minikube
+
+To start a cluster with the vfkit driver using the vmnet "shared" network:
+
+```
+minikube start --drriver vfkit --network vment-shared  ...
+```
+
+If running on older macOS version or vment-broker is not installed, minikube
+will fallback to using vmnet-helper.
 
 ## License
 
