@@ -5,45 +5,123 @@ SPDX-License-Identifier: Apache-2.0
 
 # vmnet-broker
 
-The vmnet-broker manages shared vmnet networks for applications using
-the Apple Virtualization framework. With the broker you can run multiple
-virtual machines using the same network without helpers like
-vmnet-helper that require root when starting a VM.
+The vmnet-broker manages shared high performance vmnet networks for all
+applications using the Apple Virtualization framework.
+
+## macOS 26: fast networks, hard to use
+
+macOS 26 introduced native vmnet support in the Virtualization framework,
+delivering dramatic performance improvements. Networks can now reach up to 80
+Gbit/s, up to 6 times faster than file-handle based network. This makes vmnet
+networks a compelling upgrade for all applications using the Virtualization
+framework.
+
+However, vmnet networks are bound to the process that creates them. When that
+process exits, the network is destroyed, even if VMs using the network are still
+running. This creates a fundamental challenge: you cannot simply create a
+network in your VM launcher process because the network would disappear the
+moment the launcher exits.
+
+The solution is to build a XPC service whose sole purpose is to hold networks
+alive while VMs are using them. But this approach has significant drawbacks:
+
+- **Duplicated effort.** Every project must implement and maintain its own
+  network XPC service, lifecycle management, reference counting, launchd
+  integration, and error handling independently.
+
+- **Network isolation.** VMs from different projects cannot communicate, even on
+  the same machine, because each project creates separate networks.
+
+- **System clutter.** Users end up with multiple network XPS services running,
+  one for each VM tool they use.
+
+- **Increased Friction.** Some projects require the user to start the network
+  XPC service manually before running VMs, and shut it down manually when it is
+  not needed.
+
+## One broker to connect them all
+
+vmnet-broker is a shared network XPC service that manages vmnet networks for all
+applications on the system. Instead of each project building its own network
+silo, they all connect to a single broker.
+
+The broker supports default "shared" and "host" network out of the box without
+any configuration. If needed, the admin can configure additional networks by
+placing a network configuration file. Applications that want to use their own
+networks can install network configuration files.
+
+When your application needs a network, it calls `acquireNetwork()` with one of
+the configured networks. The broker either creates a new network or returns an
+existing one if other VMs are already using it. When your application exits, the
+broker detects the disconnection and cleans up automatically, deleting the
+network when the last VM disconnects.
+
+### For developers
+
+- **No XPC service code.** Acquire a network with a single function call. Client
+  libraries available for C, Go, and Swift.
+- **Automatic lifecycle.** Networks are reference-counted. The broker handles
+  creation, sharing, and cleanup.
+- **Focus on your app.** Spend time on your VM tool, not on network
+  infrastructure.
+
+### For users
+
+- **One broker for all tools.** A single vmnet-broker replaces separate XP
+  services for each project.
+- **Cross-project networking.** VMs from lima, podman, vfkit, and other tools
+  can share the same network and can communicate freely.
+- **Maximum performance.** All applications benefit from native vmnet
+  performance in macOS 26.
+
+## Using the broker in your application
+
+To access the broker you can use the C, Swift or Go client libraries:
+
+### C
+
+```c
+vmnet_broker_return_t broker_status;
+xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
+if (serialization == NULL) {
+    ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
+    exit(EXIT_FAILURE);
+}
+```
+
+- [client](vmnet-broker.h)
+- [example](test.c)
+
+### Swift
+
+```swift
+let serialization: xpc_object_t
+do {
+    serialization = try VmnetBroker.acquireNetwork(named: "default")
+} catch {
+    logger.error("Failed to get network from broker: \(error)")
+    exit(EXIT_FAILURE)
+}
+```
+
+- [client](swift/Sources/VmnetBroker/client.swift)
+- [example](swift/Sources/test/main.swift)
+
+### Go
+
+```go
+serialization, err := vmnet_broker.AcquireNetwork("default")
+if err != nil {
+    return nil, fmt.Errorf("failed to acquire network: %w", err)
+}
+```
+
+- [client](go/vmnet_broker/vmnet_broker.go)
+- [example](go/cmd/test.go)
 
 ## Compatibility
 
 macOS Tahoe 26 or later is required.
-
-## Advantages over vmnet-helper
-
-- **Better performance**: Testing shows 3-6 time higher bandwidth with
-  much lower cpu usage compared to vmnet-helper.
-- **No root required**: Since macOS 26, root is not required to use
-  vmnet. The only requirement is the `com.apple.security.virtualization`
-  entitlement. vmnet-helper on macOS < 26 required root.
-- **More reliable**: Using public APIs make the broker more reliable in the long
-  term. vmnet-helper depends on private APIs to get good performance.
-- **Easier to maintain**: the broker in not in critical the data path.
-
-## How it works
-
-The broker is running as a launchd daemon. It must installed as root to
-ensure the program cannot be modified by unprivileged user, but it runs
-as an unprivileged user.
-
-When the first client connects to the broker to request a network, the broker
-creates a new vmnet network based on the broker configuration, and returns the
-network to the client. The client use the network to create a virtual machine
-using the new
-[VZVmnetNetworkDeviceAttachment](https://developer.apple.com/documentation/virtualization/vzvmnetnetworkdeviceattachment)
-introduced in macOS 26, that does not require root or the special
-"com.apple.networking" entitlement.
-
-When the next client connects, the existing vmnet network is returned to the
-client, so both clients are using the same vmnet network.
-
-When the last client disconnects from the broker, the vmnet network is
-released, and the kernel resources are destroyed.
 
 ## Status
 
@@ -108,51 +186,6 @@ To run the VMs use the Go or Swift test runners:
 
 > [!NOTE]
 > Login with user: ubuntu password: pass
-
-## Using the broker in your application
-
-To access the broker you can use the C, Swift or Go client libraries:
-
-### C
-
-```c
-vmnet_broker_return_t broker_status;
-xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
-if (serialization == NULL) {
-    ERRORF("failed to start broker session: (%d) %s", broker_status, vmnet_broker_strerror(broker_status));
-    exit(EXIT_FAILURE);
-}
-```
-
-- [client](vmnet-broker.h)
-- [example](test.c)
-
-### Swift
-
-```swift
-let serialization: xpc_object_t
-do {
-    serialization = try VmnetBroker.acquireNetwork(named: "default")
-} catch {
-    logger.error("Failed to get network from broker: \(error)")
-    exit(EXIT_FAILURE)
-}
-```
-
-- [client](swift/Sources/VmnetBroker/client.swift)
-- [example](swift/Sources/test/main.swift)
-
-### Go
-
-```go
-serialization, err := vmnet_broker.AcquireNetwork("default")
-if err != nil {
-    return nil, fmt.Errorf("failed to acquire network: %w", err)
-}
-```
-
-- [client](go/vmnet_broker/vmnet_broker.go)
-- [example](go/cmd/test.go)
 
 ## Future work
 
