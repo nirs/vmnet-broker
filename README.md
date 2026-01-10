@@ -231,12 +231,12 @@ See https://github.com/nirs/vmnet-broker/issues/2 for more info.
 To start a virtual machine using vfkit use the `vmnet` virtio-net device:
 
 ```
-vfkit --device virtio-net,vment,network=default ...
+vfkit --device virtio-net,vment,network=shared ...
 ```
 
-The virtual machine will use the "default" network defined in the broker
-configuration.  If you start multiple instances they will use the same network
-and can communicate.
+The virtual machine will use the "shared" builtin network. If you start multiple
+instances they will use the same network and can communicate.
+
 
 ## License
 
