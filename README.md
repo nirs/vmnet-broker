@@ -201,36 +201,21 @@ avoiding conflicts with other programs creating networks.
 To create additional specific network, create a configuration file for
 each network at `/etc/vmnet-broker.d/*.json`.
 
-#### Using dynamic subnet with static mask
+#### Using static subnet
 
 ```console
-% cat /etc/vmnet-broker.d/shared-tiny.json
+% cat /etc/vmnet-broker.d/my-testing-network.json
 {
-  "description": "My tiny testing network",
-  "mode": "shared",
-  "mask": "255.255.255.28"
-}
-```
-
-This example creates a network using dynamic subnet assigned by vmnet,
-and mask of `255.255.255.28`, providing 16 addresses. The first address
-is used by the host, and last address is the broadcast address so you
-can use only 14 addresses.
-
-#### Specific subnet
-
-```console
-% cat /etc/vmnet-broker.d/share-static.json
-{
-  "description": "My meaningful network",
+  "description": "My testing network",
   "mode": "shared",
   "subnet": "192.168.42.1"
+  "mask": "255.255.255.24"
 }
 ```
 
-This example creates the network "192.168.42.1/24". This is useful when
-you want to know the IP addresses, but may fail to create if vmnet
-allocated the network to another program not using vmnet-broker.
+This example creates the network "192.168.42.1/24". This is useful when you want
+to know the IP addresses, but may fail to create if vmnet allocated the network
+to another program not using vmnet-broker.
 
 > [!TIP]
 > To avoid conflicts, all programs should use vmnet-broker.
