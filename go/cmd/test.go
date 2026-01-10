@@ -205,7 +205,7 @@ func createNetworkDeviceConfigurations(cfg *VMConfig) ([]*vz.VirtioNetworkDevice
 		return nil, fmt.Errorf("failed to create network from serialization: %w", err)
 	}
 
-	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network.Raw())
+	attachment, err := vz.NewVmnetNetworkDeviceAttachment(network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vmnet network device attachment: %w", err)
 	}
