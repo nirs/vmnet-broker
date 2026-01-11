@@ -20,7 +20,7 @@ const struct broker_context main_context = {.name = "main"};
 // idle broker. We want to keep the network reservation in case a user want to
 // use the same network soon.
 // TODO: Read from user preferences.
-const int idle_timeout_sec = 30;
+const int idle_timeout_sec = 120;
 
 // Number of connected peers, used to prevent termination when peers are
 // connected. Using signed int to make it easy to detect incorrect counting.
