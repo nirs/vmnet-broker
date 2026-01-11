@@ -39,9 +39,9 @@
 ## README improvements
 
 - [x] Fix typos and errors (XPS→XPC, vment→vmnet, drriver→driver, invalid subnet mask)
-- [ ] Create docs/ directory structure
-- [ ] Move configuration section to docs/configuration.md
-- [ ] Move vfkit/minikube integration to docs/integrations.md
-- [ ] Move hacking/development details to docs/development.md
+- [x] Create docs/ directory structure
+- [x] Move configuration section to docs/configuration.md
+- [x] Move vfkit/minikube integration to docs/integrations.md
+- [x] Move hacking/development details to docs/development.md
 - [ ] Rewrite opening sections to match the technical tone of the rest
-- [ ] Streamline README structure with links to docs/
+- [x] Streamline README structure with links to docs/
