@@ -15,9 +15,8 @@ fi
 trap 'fatal "Install failed"' ERR
 
 if service_installed; then
-    pid=$(service_pid)
-    if [[ "$pid" != "-" ]]; then
-        fatal "Service $service_name is currently running (service_pid: $pid)"
+    if ! try_stop_service; then
+        fatal "Install failed: failed to stop service (vms are running?)"
     fi
 
     debug "Booting out service $service_name"

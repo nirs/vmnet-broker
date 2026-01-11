@@ -7,6 +7,7 @@ group_name="_vmnetbroker"
 install_dir="/Library/Application Support/vmnet-broker"
 launchd_dir="/Library/LaunchDaemons"
 log_dir="/Library/Logs/vmnet-broker"
+stop_timeout=5
 
 log() {
     local level="$1"
@@ -75,4 +76,34 @@ find_unique_id() {
     local last_id
     last_id=$(run bash -c "dscl . -list /Users UniqueID | awk '\$2 > 200 && \$2 < 400 {print \$2}' | sort -n | tail -1")
     echo $((last_id + 1))
+}
+
+# Stop the broker if it is idle. Fails if the broker has active connections.
+# Uses kill directly instead of launchctl stop to avoid triggering launchd's
+# ExitTimeOut which would SIGKILL the broker after 60 seconds.
+try_stop_service() {
+    local pid
+    pid=$(service_pid)
+
+    if [[ "$pid" == "-" ]]; then
+        debug "Service is not running"
+        return 0
+    fi
+
+    debug "Stopping service (pid: $pid)"
+    run kill -TERM "$pid"
+
+    # Wait for graceful shutdown
+    local i
+    for i in $(seq $stop_timeout); do
+        debug "Waiting for service to stop (attempt $i/$stop_timeout)"
+        run sleep 1
+        if ! run kill -0 "$pid" 2>/dev/null; then
+            info "Stopped service $service_name (pid: $pid)"
+            return 0
+        fi
+    done
+
+    debug "Timeout stopping service"
+    return 1
 }

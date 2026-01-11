@@ -50,14 +50,14 @@
 
 - [ ] Add bats tests for install script (files, user, group, service)
 - [ ] Add bats tests for uninstall script (cleanup verification)
+- [ ] Test try_stop_service fails when peers are connected
 - [ ] Note: requires root, suitable for CI only
 
 ## Smarter service shutdown
 
-- [ ] Handle `launchctl stop` signal for immediate graceful shutdown
-- [ ] Update uninstall script to stop service before bootout
-- [ ] Enables longer idle timeout (2+ minutes) without blocking uninstall
-- [ ] Current 30s timeout is too long for dev, too short for production
+- [x] Handle `launchctl stop` signal for immediate graceful shutdown
+- [x] Update uninstall script to stop service before bootout
+- [ ] Increase idle timeout (2+ minutes) now that install/uninstall are smarter
 
 ## Performance
 
