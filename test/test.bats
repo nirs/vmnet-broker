@@ -61,6 +61,16 @@ check_peers() {
     [ "$output" = "ok" ]
 }
 
+@test "serial peers reuse network (exercise timer cancellation)" {
+    # When peer disconnects, the broker starts idle timers. The next peer cancels
+    # the timers when it acquires the network.
+    for i in 1 2 3; do
+        ./test-c --quick shared > "$BATS_TEST_TMPDIR/peer$i.out" 2>"$BATS_TEST_TMPDIR/peer$i.err"
+    done
+    run --separate-stderr check_peers "$BATS_TEST_TMPDIR" 3
+    [ "$status" -eq 0 ]
+}
+
 @test "multiple peers with different networks" {
     ./test-c --quick shared > "$BATS_TEST_TMPDIR/peer1.out" 2>"$BATS_TEST_TMPDIR/peer1.err" &
     ./test-c --quick host > "$BATS_TEST_TMPDIR/peer2.out" 2>"$BATS_TEST_TMPDIR/peer2.err" &
