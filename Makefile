@@ -51,10 +51,10 @@ test-go:
 	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-install:
+install: vmnet-broker install.sh uninstall.sh com.github.nirs.vmnet-broker.plist LICENSE
 	sudo ./install.sh
 
-uninstall:
+uninstall: uninstall.sh
 	sudo ./uninstall.sh
 
 clean:
