@@ -26,11 +26,15 @@ check_peers() {
 }
 
 @test "acquire shared network" {
-    ./test-c --quick shared
+    run --separate-stderr  ./test-c --quick shared
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }
 
 @test "acquire host network" {
-    ./test-c --quick host
+    run --separate-stderr  ./test-c --quick host
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }
 
 @test "non-existing network returns NOT_FOUND" {
