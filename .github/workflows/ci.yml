@@ -95,5 +95,5 @@ jobs:
       - name: Test
         run: make test
 
-      # TODO: Add uninstall step once smarter service shutdown is implemented
-      # See TODO.md "Smarter service shutdown"
+      - name: Uninstall
+        run: make uninstall
