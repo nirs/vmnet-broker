@@ -6,6 +6,8 @@
 /test-go
 /test-swift
 /vmnet-broker
+/install.sh
+/uninstall.sh
 /build/
 
 # Swift

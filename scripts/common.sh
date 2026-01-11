@@ -1,8 +1,5 @@
-#!/bin/bash
-# SPDX-FileCopyrightText: The vmnet-broker authors
-# SPDX-License-Identifier: Apache-2.0
-
-set -eu -o pipefail
+# Common configuration and functions for install/uninstall scripts
+# This file is embedded during build - do not use directly
 
 service_name="com.github.nirs.vmnet-broker"
 user_name="_vmnetbroker"
@@ -72,46 +69,9 @@ user_exists() {
     run id -u $user_name >/dev/null 2>&1
 }
 
-if [[ $EUID -ne 0 ]]; then
-    fatal "This script must be run as root"
-fi
-
-trap 'fatal "Uninstall failed"' ERR
-
-if service_installed; then
-    pid=$(service_pid)
-    if [[ "$pid" != "-" ]]; then
-        fatal "Service $service_name is currently running (service_pid: $pid)"
-    fi
-
-    debug "Booting out service $service_name"
-    run launchctl bootout "system/$service_name" || true
-    run rm -f "$launchd_dir/$service_name.plist"
-    info "Booted out service $service_name"
-fi
-
-if [[ -d "$install_dir" ]]; then
-    debug "Deleting $install_dir"
-    run rm -rf "$install_dir"
-    info "Deleted $install_dir"
-fi
-
-if [[ -d "$log_dir" ]]; then
-    debug "Deleting $log_dir"
-    run rm -rf "$log_dir"
-    info "Deleted $log_dir"
-fi
-
-if group_exists; then
-    debug "Deleting system group $group_name"
-    run dscl . -delete /Groups/$group_name
-    info "Deleted system group $group_name"
-fi
-
-if user_exists; then
-    debug "Deleting system user $user_name"
-    run dscl . -delete /Users/$user_name
-    info "Deleted system user $user_name"
-fi
-
-notice "Uninstall completed"
+# Generate a unique ID in the 200-400 range for a system user.
+find_unique_id() {
+    debug "Looking up available unique id"
+    local last_id=$(run bash -c "dscl . -list /Users UniqueID | awk '\$2 > 200 && \$2 < 400 {print \$2}' | sort -n | tail -1")
+    echo $((last_id + 1))
+}

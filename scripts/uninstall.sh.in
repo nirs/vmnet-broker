@@ -1,0 +1,53 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: The vmnet-broker authors
+# SPDX-License-Identifier: Apache-2.0
+
+# NOTE: Generated from scripts/uninstall.sh.in - do not edit
+
+set -eu -o pipefail
+
+#@INCLUDE_COMMON@
+
+if [[ $EUID -ne 0 ]]; then
+    fatal "This script must be run as root"
+fi
+
+trap 'fatal "Uninstall failed"' ERR
+
+if service_installed; then
+    pid=$(service_pid)
+    if [[ "$pid" != "-" ]]; then
+        fatal "Service $service_name is currently running (service_pid: $pid)"
+    fi
+
+    debug "Booting out service $service_name"
+    run launchctl bootout "system/$service_name" || true
+    run rm -f "$launchd_dir/$service_name.plist"
+    info "Booted out service $service_name"
+fi
+
+if [[ -d "$install_dir" ]]; then
+    debug "Deleting $install_dir"
+    run rm -rf "$install_dir"
+    info "Deleted $install_dir"
+fi
+
+if [[ -d "$log_dir" ]]; then
+    debug "Deleting $log_dir"
+    run rm -rf "$log_dir"
+    info "Deleted $log_dir"
+fi
+
+if group_exists; then
+    debug "Deleting system group $group_name"
+    run dscl . -delete /Groups/$group_name
+    info "Deleted system group $group_name"
+fi
+
+if user_exists; then
+    debug "Deleting system user $user_name"
+    run dscl . -delete /Users/$user_name
+    info "Deleted system user $user_name"
+fi
+
+notice "Uninstall completed"
