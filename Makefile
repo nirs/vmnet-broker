@@ -24,7 +24,7 @@ all: vmnet-broker test-c test-swift test-go
 
 test: test-c
 	bats test
-	cd go && go test -v ./vmnet_broker
+	cd go && go test -v ./vmnet_broker -count 1
 	cd swift && swift test
 
 vmnet-broker: $(broker_objects)
