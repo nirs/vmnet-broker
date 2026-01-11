@@ -21,9 +21,9 @@
 
 ## Network idle shutdown
 
-- [ ] Add idle timeout for individual networks
-- [ ] Delete network after timeout when no peers are using it
-- [ ] Cancel timeout when peer acquires the network
+- [x] Add idle timeout for individual networks
+- [x] Remove network after timeout when no peers are using it
+- [x] Cancel timeout when peer acquires the network
 
 ## Run-at-load semantics
 

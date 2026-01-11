@@ -3,6 +3,7 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <arpa/inet.h>
+#include <dispatch/dispatch.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -11,6 +12,8 @@
 #include "common.h"
 #include "log.h"
 #include "vmnet-broker.h"
+
+extern const int idle_timeout_sec;
 
 // Network configuration.
 struct network_config {
@@ -42,6 +45,7 @@ struct network {
     int peers; // Number of peers using this network
     vmnet_network_ref ref;
     xpc_object_t serialization;
+    dispatch_source_t idle_timer;
 };
 
 static const struct network_config builtin_networks[] = {
@@ -177,6 +181,9 @@ static void free_network(
     }
     if (network->serialization) {
         xpc_release(network->serialization);
+    }
+    if (network->idle_timer) {
+        dispatch_release(network->idle_timer);
     }
     free(network->name);
     free(network);
@@ -331,6 +338,63 @@ static void registry_remove(const char *name) {
     CFRelease(key);
 }
 
+// Schedule removal of the network after idle_timeout_sec seconds. To cancel the
+// removal call cancel_remove_later().
+static void
+remove_later(const struct broker_context *ctx, struct network *net) {
+    DEBUGF(
+        "[%s] removing network '%s' in %d seconds",
+        ctx->name,
+        net->name,
+        idle_timeout_sec
+    );
+
+    // This is impossible since the first connected peer canceled the timer, and
+    // shutdown_later is called when the last peer has disconnected.
+    assert(
+        net->idle_timer == NULL && "idle timer running in registry_remove_later"
+    );
+
+    net->idle_timer = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue()
+    );
+
+    assert(net->idle_timer != NULL && "failed to create idle timer");
+
+    dispatch_time_t start = dispatch_time(
+        DISPATCH_TIME_NOW, idle_timeout_sec * NSEC_PER_SEC
+    );
+    // Allow the system up to 1 second leeway if this can improve power
+    // consumption and system performance.
+    uint64_t leeway = 1 * NSEC_PER_SEC;
+
+    dispatch_source_set_timer(
+        net->idle_timer, start, DISPATCH_TIME_FOREVER, leeway
+    );
+
+    dispatch_source_set_event_handler(net->idle_timer, ^{
+        INFOF(
+            "[%s] idle timeout - removing network '%s'",
+            main_context.name,
+            net->name
+        );
+        registry_remove(net->name);
+    });
+
+    dispatch_resume(net->idle_timer);
+}
+
+// Cancel network removal if the removal is scheduled.
+static void
+cancel_remove_later(struct broker_context *ctx, struct network *net) {
+    if (net->idle_timer != NULL) {
+        DEBUGF("[%s] canceled remove network '%s'", ctx->name, net->name);
+        dispatch_source_cancel(net->idle_timer);
+        dispatch_release(net->idle_timer);
+        net->idle_timer = NULL;
+    }
+}
+
 // MARK: - Peer ownership helpers
 
 // Check if peer already owns a network.
@@ -418,6 +482,8 @@ xpc_object_t acquire_network(
         return NULL;
     }
 
+    cancel_remove_later(ctx, net);
+
     return xpc_retain(net->serialization);
 }
 
@@ -434,8 +500,7 @@ void release_peer_networks(struct broker_context *ctx) {
         );
 
         if (net->peers == 0) {
-            registry_remove(net->name);
-            // Note: free_network is called by registry_release callback
+            remove_later(ctx, net);
         }
     }
 }
