@@ -5,76 +5,47 @@ SPDX-License-Identifier: Apache-2.0
 
 # vmnet-broker
 
-The vmnet-broker manages shared high performance vmnet networks for all
-applications using the Apple Virtualization framework.
+A shared XPC service that manages vmnet networks for apps using the
+Apple Virtualization framework.
 
-## macOS 26: fast networks, hard to use
+## Why
 
-macOS 26 introduced native vmnet support in the Virtualization framework,
-delivering dramatic performance improvements. Networks can now reach up to 80
-Gbit/s, up to 6 times faster than file-handle based network. This makes vmnet
-networks a compelling upgrade for all applications using the Virtualization
-framework.
+macOS 26 added native vmnet support to the Virtualization framework. vmnet
+networks can reach up to 80 Gbit/s, about 6x faster than file-handle based
+networks.
 
-However, vmnet networks are bound to the process that creates them. When that
-process exits, the network is destroyed, even if VMs using the network are still
-running. This creates a fundamental challenge: you cannot simply create a
-network in your VM launcher process because the network would disappear the
-moment the launcher exits.
+The catch: vmnet networks are bound to the process that creates them. When
+the process exits, the network is destroyed, even if VMs are still using it.
+You can't create a network in your VM launcher because it would disappear
+when the launcher exits.
 
-The solution is to build a XPC service whose sole purpose is to hold networks
-alive while VMs are using them. But this approach has significant drawbacks:
+The solution is to build an XPC service to hold networks alive. But if every
+project does this independently:
+- Duplicated code for XPC service, lifecycle management, launchd integration
+- VMs from different tools can't communicate (separate networks)
+- Multiple XPC services running on user machines
+- Manual start/stop commands (e.g. `container system start/stop`)
 
-- **Duplicated effort.** Every project must implement and maintain its own
-  network XPC service, lifecycle management, reference counting, launchd
-  integration, and error handling independently.
+## How it works
 
-- **Network isolation.** VMs from different projects cannot communicate, even on
-  the same machine, because each project creates separate networks.
+vmnet-broker is a single shared XPC service for all apps. Instead of each
+project building its own network service, they all connect to the broker.
 
-- **System clutter.** Users end up with multiple network XPC services running,
-  one for each VM tool they use.
-
-- **Increased Friction.** Some projects require the user to start the network
-  XPC service manually before running VMs, and shut it down manually when it is
-  not needed.
-
-## One broker to connect them all
-
-vmnet-broker is a shared network XPC service that manages vmnet networks for all
-applications on the system. Instead of each project building its own network
-silo, they all connect to a single broker.
-
-The broker supports default "shared" and "host" network out of the box without
-any configuration. If needed, the admin can configure additional networks by
-placing a network configuration file. Applications that want to use their own
-networks can install network configuration files.
-
-When your application needs a network, it calls `acquireNetwork()` with one of
-the configured networks. The broker either creates a new network or returns an
-existing one if other VMs are already using it. When your application exits, the
-broker detects the disconnection and cleans up automatically, deleting the
-network when the last VM disconnects.
+The broker provides "shared" and "host" networks out of the box. Apps call
+`acquireNetwork()` with a network name. The broker creates the network or
+returns an existing one if other VMs are already using it. Networks are
+reference-counted and cleaned up when the last client disconnects.
 
 ![vmnet-broker architecture](media/architecture.svg)
 
-### For developers
+For developers:
+- Acquire a network with a single function call
+- Client libraries for C, Go, and Swift
+- Networks are created and removed automatically
 
-- **No XPC service code.** Acquire a network with a single function call. Client
-  libraries available for C, Go, and Swift.
-- **Automatic lifecycle.** Networks are reference-counted. The broker handles
-  creation, sharing, and cleanup.
-- **Focus on your app.** Spend time on your VM tool, not on network
-  infrastructure.
-
-### For users
-
-- **One broker for all tools.** A single vmnet-broker replaces separate XPC
-  services for each project.
-- **Cross-project networking.** VMs from lima, podman, vfkit, minikube, and
-  other tools can share the same network and can communicate freely.
-- **Maximum performance.** All applications benefit from native vmnet
-  performance in macOS 26.
+For users:
+- One broker for all tools instead of separate XPC services per project
+- VMs from lima, podman, vfkit, minikube can share the same network
 
 ## Using the broker in your application
 
