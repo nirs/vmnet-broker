@@ -2,42 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <CoreFoundation/CFBase.h>
-#include <arpa/inet.h>
 #include <dispatch/dispatch.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "broker-config.h"
 #include "broker-xpc.h"
 #include "common.h"
 #include "log.h"
 #include "vmnet-broker.h"
 
 extern const int idle_timeout_sec;
-
-// Network configuration.
-struct network_config {
-    const char *name;
-
-    // VMNET_SHARED_MODE | VMNET_HOST_MODE
-    vmnet_mode_t mode;
-
-    // IPv4 subnet: a /24 under 192.168/16
-    const char *subnet;
-    const char *mask;
-
-    // TODO: Add rest of options:
-    // - External interface: default interface per the routing table
-    // - NAT44: enabled
-    // - NAT66: enabled
-    // - DHCP: enabled
-    // - DNS proxy: enabled
-    // - Router advertisement: enabled
-    // - IPv6 prefix: random ULA prefix
-    // - Port forwarding rule: none
-    // - DHCP reservation: none
-    // - MTU: 1500
-};
 
 // Shared network used by one or more peers.
 struct network {
@@ -48,112 +24,11 @@ struct network {
     dispatch_source_t idle_timer;
 };
 
-static const struct network_config builtin_networks[] = {
-    {
-        .name = "shared",
-        .mode = VMNET_SHARED_MODE,
-    },
-    {
-        .name = "host",
-        .mode = VMNET_HOST_MODE,
-    },
-};
-
 // Network registry - keeps track of acquired networks by name.
 static CFMutableDictionaryRef registry;
 
 // External reference to main context (defined in broker.c)
 extern const struct broker_context main_context;
-
-// MARK: - Configuration functions
-
-static vmnet_network_configuration_ref create_network_configuration(
-    const struct broker_context *ctx,
-    const struct network_config *network_config
-) {
-    vmnet_return_t status;
-    vmnet_network_configuration_ref
-        configuration = vmnet_network_configuration_create(
-            network_config->mode, &status
-        );
-    if (configuration == NULL) {
-        WARNF(
-            "[%s] failed to create network configuration: (%d) %s",
-            ctx->name,
-            status,
-            vmnet_strerror(status)
-        );
-        return NULL;
-    }
-
-    // When subnet and mask are NULL, vmnet allocates both dynamically.
-    // This is the most reliable way to avoid conflicts with other programs
-    // allocating the same network, and to prevent orphaned networks if the
-    // broker is killed while VMs are using the network.
-    // TODO: Investigate if vmnet supports partial allocation (e.g., set subnet
-    // and let vmnet allocate mask, or vice versa). This would allow more
-    // flexible network configuration.
-
-    if (network_config->subnet && network_config->mask) {
-        struct in_addr subnet_addr;
-        if (inet_pton(AF_INET, network_config->subnet, &subnet_addr) == 0) {
-            WARNF(
-                "[%s] failed to parse subnet '%s': %s",
-                ctx->name,
-                network_config->subnet,
-                strerror(errno)
-            );
-            goto error;
-        }
-
-        struct in_addr subnet_mask;
-        if (inet_pton(AF_INET, network_config->mask, &subnet_mask) == 0) {
-            WARNF(
-                "[%s] failed to parse mask '%s': %s",
-                ctx->name,
-                network_config->mask,
-                strerror(errno)
-            );
-            goto error;
-        }
-
-        status = vmnet_network_configuration_set_ipv4_subnet(
-            configuration, &subnet_addr, &subnet_mask
-        );
-        if (status != VMNET_SUCCESS) {
-            WARNF(
-                "[%s] failed to set ipv4 subnet: (%d) %s",
-                ctx->name,
-                status,
-                vmnet_strerror(status)
-            );
-            goto error;
-        }
-    }
-
-    // TODO: set rest of options.
-
-    return configuration;
-
-error:
-    CFRelease(configuration);
-    return NULL;
-}
-
-static const struct network_config *find_network_config(
-    const struct broker_context *ctx, const char *name, int *error
-) {
-    for (size_t i = 0; i < ARRAY_SIZE(builtin_networks); i++) {
-        if (strcmp(builtin_networks[i].name, name) == 0) {
-            return &builtin_networks[i];
-        }
-    }
-    WARNF("[%s] network '%s' not found", ctx->name, name);
-    if (error) {
-        *error = VMNET_BROKER_NOT_FOUND;
-    }
-    return NULL;
-}
 
 // MARK: - Network functions
 
@@ -192,11 +67,11 @@ static void free_network(
 
 static struct network *create_network(
     const struct broker_context *ctx,
-    const struct network_config *config,
+    const char *name,
+    vmnet_network_configuration_ref config,
     int *error
 ) {
     vmnet_return_t status;
-    vmnet_network_configuration_ref configuration = NULL;
     struct network *network = NULL;
 
     network = calloc(1, sizeof(*network));
@@ -207,7 +82,7 @@ static struct network *create_network(
         goto failure;
     }
 
-    network->name = strdup(config->name);
+    network->name = strdup(name);
     if (network->name == NULL) {
         WARNF(
             "[%s] failed to allocate network name: %s",
@@ -217,14 +92,7 @@ static struct network *create_network(
         goto failure;
     }
 
-    configuration = create_network_configuration(ctx, config);
-    if (configuration == NULL) {
-        goto failure;
-    }
-
-    network->ref = vmnet_network_create(configuration, &status);
-    CFRelease(configuration);
-    configuration = NULL;
+    network->ref = vmnet_network_create(config, &status);
     if (network->ref == NULL) {
         WARNF(
             "[%s] failed to create network ref: (%d) %s",
@@ -241,7 +109,7 @@ static struct network *create_network(
         "[%s] created network '%s' subnet '%s' mask '%s' ipv6_prefix '%s' "
         "prefix_len %d",
         ctx->name,
-        config->name,
+        name,
         info.subnet,
         info.mask,
         info.ipv6_prefix,
@@ -264,9 +132,6 @@ static struct network *create_network(
     return network;
 
 failure:
-    if (configuration) {
-        CFRelease(configuration);
-    }
     free_network(network, ctx);
     if (error) {
         *error = VMNET_BROKER_CREATE_FAILURE;
@@ -464,14 +329,16 @@ xpc_object_t acquire_network(
             return NULL;
         }
 
-        const struct network_config *config = find_network_config(
+        vmnet_network_configuration_ref config = create_network_configuration(
             ctx, network_name, error
         );
         if (config == NULL) {
             return NULL;
         }
 
-        net = create_network(ctx, config, error);
+        net = create_network(ctx, network_name, config, error);
+        CFRelease(config);
+        config = NULL;
         if (net == NULL) {
             return NULL;
         }
