@@ -32,7 +32,7 @@ alive while VMs are using them. But this approach has significant drawbacks:
 - **Network isolation.** VMs from different projects cannot communicate, even on
   the same machine, because each project creates separate networks.
 
-- **System clutter.** Users end up with multiple network XPS services running,
+- **System clutter.** Users end up with multiple network XPC services running,
   one for each VM tool they use.
 
 - **Increased Friction.** Some projects require the user to start the network
@@ -69,7 +69,7 @@ network when the last VM disconnects.
 
 ### For users
 
-- **One broker for all tools.** A single vmnet-broker replaces separate XP
+- **One broker for all tools.** A single vmnet-broker replaces separate XPC
   services for each project.
 - **Cross-project networking.** VMs from lima, podman, vfkit, minikube, and
   other tools can share the same network and can communicate freely.
@@ -201,7 +201,7 @@ dynamic subnet and default mask (`255.255.255.0`). The vmnet framework
 assigns the next available network. This is the most reliable way,
 avoiding conflicts with other programs creating networks.
 
-To create additional specific network, create a configuration file for
+To create an additional specific network, create a configuration file for
 each network at `/etc/vmnet-broker.d/*.json`.
 
 #### Using static subnet
@@ -212,7 +212,7 @@ each network at `/etc/vmnet-broker.d/*.json`.
   "description": "My testing network",
   "mode": "shared",
   "subnet": "192.168.42.1"
-  "mask": "255.255.255.24"
+  "mask": "255.255.255.0"
 }
 ```
 
@@ -231,7 +231,7 @@ See https://github.com/nirs/vmnet-broker/issues/2 for more info.
 To start a virtual machine using vfkit use the `vmnet` virtio-net device:
 
 ```
-vfkit --device virtio-net,vment,network=shared ...
+vfkit --device virtio-net,vmnet,network=shared ...
 ```
 
 The virtual machine will use the "shared" builtin network. If you start multiple
@@ -242,10 +242,10 @@ instances they will use the same network and can communicate.
 To start a cluster with the vfkit driver using the vmnet "shared" network:
 
 ```
-minikube start --drriver vfkit --network vment-shared  ...
+minikube start --driver vfkit --network vmnet-shared ...
 ```
 
-If running on older macOS version or vment-broker is not installed, minikube
+If running on older macOS version or vmnet-broker is not installed, minikube
 will fallback to using vmnet-helper.
 
 ## License

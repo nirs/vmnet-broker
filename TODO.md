@@ -35,3 +35,13 @@
 
 - [ ] Add command to dump daemon state (networks, peers, counters)
 - [ ] Useful for troubleshooting without restarting the daemon
+
+## README improvements
+
+- [x] Fix typos and errors (XPS→XPC, vment→vmnet, drriver→driver, invalid subnet mask)
+- [ ] Create docs/ directory structure
+- [ ] Move configuration section to docs/configuration.md
+- [ ] Move vfkit/minikube integration to docs/integrations.md
+- [ ] Move hacking/development details to docs/development.md
+- [ ] Rewrite opening sections to match the technical tone of the rest
+- [ ] Streamline README structure with links to docs/
