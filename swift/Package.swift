@@ -19,6 +19,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -30,7 +31,11 @@ let package = Package(
         ),
         .testTarget(
             name: "VmnetBrokerTests",
-            dependencies: ["VmnetBroker", "vmnet_broker"],
+            dependencies: [
+                "VmnetBroker",
+                "vmnet_broker",
+                .product(name: "Testing", package: "swift-testing"),
+            ],
         ),
         .executableTarget(
             name: "test",
