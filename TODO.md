@@ -46,6 +46,19 @@
 - [x] Rewrite opening sections to match the technical tone of the rest
 - [x] Streamline README structure with links to docs/
 
+## Install/uninstall testing
+
+- [ ] Add bats tests for install script (files, user, group, service)
+- [ ] Add bats tests for uninstall script (cleanup verification)
+- [ ] Note: requires root, suitable for CI only
+
+## Smarter service shutdown
+
+- [ ] Handle `launchctl stop` signal for immediate graceful shutdown
+- [ ] Update uninstall script to stop service before bootout
+- [ ] Enables longer idle timeout (2+ minutes) without blocking uninstall
+- [ ] Current 30s timeout is too long for dev, too short for production
+
 ## Performance
 
 - [ ] Add performance benchmarks (iperf3 on macOS 26: vmnet-broker vs vmnet-helper vs socket_vmnet)
