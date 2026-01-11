@@ -14,13 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install clang-format
-        run: brew install clang-format
+      - name: Install dependencies
+        run: brew install shellcheck clang-format
 
-      - name: Check formatting
-        run: |
-          make fmt
-          git diff --exit-code || (echo "Code is not formatted. Run 'make fmt' and commit." && exit 1)
+      - name: Lint
+        run: make lint
 
   test:
     runs-on: macos-26

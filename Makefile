@@ -18,7 +18,7 @@ test_sources = test/test.c client/client.c lib/common.c
 broker_objects = $(patsubst %.c,$(build_dir)/%.o,$(broker_sources))
 test_objects = $(patsubst %.c,$(build_dir)/%.o,$(test_sources))
 
-.PHONY: all test install uninstall clean test-swift test-go fmt scripts
+.PHONY: all test install uninstall clean test-swift test-go fmt lint scripts
 
 all: vmnet-broker test-c test-swift test-go scripts
 
@@ -65,6 +65,10 @@ clean:
 
 fmt:
 	clang-format -i broker/*.c client/*.c lib/*.c test/*.c include/*.h
+
+lint: scripts
+	shellcheck install.sh uninstall.sh
+	clang-format --dry-run --Werror broker/*.c client/*.c lib/*.c test/*.c include/*.h
 
 scripts: install.sh uninstall.sh
 
