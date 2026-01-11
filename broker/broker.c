@@ -16,11 +16,11 @@ bool verbose = true;
 // The context used for main() and signal handlers.
 const struct broker_context main_context = {.name = "main"};
 
-// Time to wait in seconds before shutting down after the broker became idle. We
-// want to keep the network reservation in case a user want to use the same
-// network soon.
+// Time to wait in seconds before shutting down idle network, or shutting done
+// idle broker. We want to keep the network reservation in case a user want to
+// use the same network soon.
 // TODO: Read from user preferences.
-static const int idle_timeout_sec = 30;
+const int idle_timeout_sec = 30;
 
 // Number of connected peers, used to prevent termination when peers are
 // connected. Using signed int to make it easy to detect incorrect counting.
