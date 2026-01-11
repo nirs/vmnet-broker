@@ -11,7 +11,7 @@ log_dir="/Library/Logs/vmnet-broker"
 log() {
     local level="$1"
     local msg="$2"
-    logger -p user.$level "vmnet-broker: $msg"
+    logger -p "user.$level" "vmnet-broker: $msg"
 }
 
 debug() {
@@ -72,6 +72,7 @@ user_exists() {
 # Generate a unique ID in the 200-400 range for a system user.
 find_unique_id() {
     debug "Looking up available unique id"
-    local last_id=$(run bash -c "dscl . -list /Users UniqueID | awk '\$2 > 200 && \$2 < 400 {print \$2}' | sort -n | tail -1")
+    local last_id
+    last_id=$(run bash -c "dscl . -list /Users UniqueID | awk '\$2 > 200 && \$2 < 400 {print \$2}' | sort -n | tail -1")
     echo $((last_id + 1))
 }

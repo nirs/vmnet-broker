@@ -31,15 +31,15 @@ unique_id=$(find_unique_id)
 if ! group_exists; then
     debug "Creating system group $group_name id $unique_id"
     run dscl . -create /Groups/$group_name
-    run dscl . -create /Groups/$group_name PrimaryGroupID $unique_id
+    run dscl . -create /Groups/$group_name PrimaryGroupID "$unique_id"
     info "Created system group $group_name"
 fi
 
 if ! user_exists; then
     debug "Creating system user $user_name id $unique_id"
     run dscl . -create /Users/$user_name
-    run dscl . -create /Users/$user_name UniqueID $unique_id
-    run dscl . -create /Users/$user_name PrimaryGroupID $unique_id
+    run dscl . -create /Users/$user_name UniqueID "$unique_id"
+    run dscl . -create /Users/$user_name PrimaryGroupID "$unique_id"
     run dscl . -create /Users/$user_name UserShell /usr/bin/false
     run dscl . -create /Users/$user_name RealName "Vmnet Broker Daemon"
     run dscl . -create /Users/$user_name NFSHomeDirectory /var/empty
