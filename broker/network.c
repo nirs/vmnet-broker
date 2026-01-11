@@ -183,6 +183,7 @@ static void free_network(
         xpc_release(network->serialization);
     }
     if (network->idle_timer) {
+        dispatch_source_cancel(network->idle_timer);
         dispatch_release(network->idle_timer);
     }
     free(network->name);
