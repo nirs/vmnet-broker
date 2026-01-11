@@ -113,6 +113,7 @@ static void on_peer_connect(struct broker_context *ctx) {
         if (idle_timer) {
             DEBUGF("[%s] canceling idle shutdown", ctx->name);
             dispatch_source_cancel(idle_timer);
+            dispatch_release(idle_timer);
             idle_timer = NULL;
         }
     }
