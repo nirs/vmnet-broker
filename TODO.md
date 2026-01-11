@@ -57,7 +57,7 @@
 
 - [x] Handle `launchctl stop` signal for immediate graceful shutdown
 - [x] Update uninstall script to stop service before bootout
-- [ ] Increase idle timeout (2+ minutes) now that install/uninstall are smarter
+- [x] Increase idle timeout (2+ minutes) now that install/uninstall are smarter
 
 ## Performance
 
