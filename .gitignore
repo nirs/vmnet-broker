@@ -12,7 +12,6 @@
 
 # Swift
 /swift/.build/
-/swift/Package.resolved
 
 # Go
 /go/test
