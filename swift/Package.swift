@@ -7,6 +7,16 @@
 import Foundation
 import PackageDescription
 
+var deps: [Package.Dependency] = [
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
+]
+
+// DocC plugin is only needed for documentation generation, skip in CI
+if ProcessInfo.processInfo.environment["SKIP_DOCC_PLUGIN"] == nil {
+    deps.append(.package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"))
+}
+
 let package = Package(
     name: "vmnet-broker",
     platforms: [.macOS(.v26)],
@@ -16,11 +26,7 @@ let package = Package(
             targets: ["VmnetBroker"],
         )
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
-    ],
+    dependencies: deps,
     targets: [
         .target(
             name: "vmnet_broker",
