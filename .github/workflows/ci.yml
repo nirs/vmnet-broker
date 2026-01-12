@@ -57,36 +57,27 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Get vz branch commit hash
-        id: vz-commit
+        id: vz
         run: |
           COMMIT=$(git ls-remote https://github.com/norio-nomura/vz feat-add-vmnet-network-device-attachment | cut -f1)
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
           echo "vz branch commit: $COMMIT"
 
+      # No restore-keys: partial match would have wrong commit, requiring fetch anyway
       - name: Cache vz dependency
         id: cache-vz
         uses: actions/cache@v4
         with:
           path: ${{ runner.workspace }}/norio-nomura/vz
-          key: ${{ runner.os }}-vz-${{ hashFiles('go/go.mod') }}-${{ steps.vz-commit.outputs.commit }}
-          restore-keys: |
-            ${{ runner.os }}-vz-
+          key: ${{ runner.os }}-vz-${{ steps.vz.outputs.commit }}
 
-      - name: Setup Go test dependency
+      - name: Clone vz dependency
+        if: steps.cache-vz.outputs.cache-hit != 'true'
         run: |
-          if [ ! -d "../norio-nomura/vz" ]; then
-            git clone https://github.com/norio-nomura/vz ../norio-nomura/vz
-          fi
-          cd ../norio-nomura/vz
-          CURRENT=$(git rev-parse HEAD 2>/dev/null || echo "")
-          EXPECTED="${{ steps.vz-commit.outputs.commit }}"
-          if [ "$CURRENT" != "$EXPECTED" ]; then
-            echo "Updating to latest commit: $EXPECTED"
-            git fetch origin
-            git checkout feat-add-vmnet-network-device-attachment
-            git reset --hard origin/feat-add-vmnet-network-device-attachment
-          fi
-          make
+          git clone \
+            --branch feat-add-vmnet-network-device-attachment \
+            https://github.com/norio-nomura/vz \
+            ../norio-nomura/vz
 
       - name: Build
         run: make
