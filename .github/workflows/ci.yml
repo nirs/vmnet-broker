@@ -33,16 +33,6 @@ jobs:
           go-version-file: go/go.mod
           cache: false
 
-      - name: Cache Go build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-build-${{ hashFiles('go/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-build-
-
       - name: Install dependencies
         run: brew install clang-format bats-core
 
@@ -55,6 +45,16 @@ jobs:
           key: ${{ runner.os }}-swift-${{ hashFiles('swift/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-swift-
+
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/Library/Caches/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Get vz branch commit hash
         id: vz-commit
