@@ -49,7 +49,7 @@ jobs:
         with:
           path: |
             swift/.build
-            swift/Package.resolved
+            ~/.swiftpm/cache
           key: ${{ runner.os }}-swift-${{ hashFiles('swift/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-swift-
