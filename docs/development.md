@@ -5,6 +5,24 @@ SPDX-License-Identifier: Apache-2.0
 
 # Development
 
+## Prerequisites
+
+The following tools are required:
+
+- **Xcode Command Line Tools** - provides `clang`, `codesign`, `swift`, `git`,
+  and `make` (`xcode-select --install`)
+- **Go 1.24.0+** - for building the Go client and test runner
+- **bats 1.5.0+** - Bash testing framework
+- **clang-format** - for code formatting
+- **shellcheck** - for shell script linting
+
+If you use Homebrew, you can install all the tools with:
+
+```console
+xcode-select --install
+brew install go bats-core clang-format shellcheck
+```
+
 ## Dependencies
 
 The Go test runner depends on this upstream PR:
