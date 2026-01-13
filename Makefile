@@ -19,7 +19,7 @@ test_sources = test/test.c client/client.c lib/common.c
 broker_objects = $(patsubst %.c,$(build_dir)/%.o,$(broker_sources))
 test_objects = $(patsubst %.c,$(build_dir)/%.o,$(test_sources))
 
-.PHONY: all test install uninstall clean test-swift test-go fmt lint scripts
+.PHONY: all test install uninstall clean test-swift test-go fmt lint scripts dist
 
 all: vmnet-broker test-c test-swift test-go scripts
 
@@ -52,8 +52,8 @@ test-go:
 	cd go && go build -o ../$@ cmd/test.go
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-install: vmnet-broker install.sh uninstall.sh com.github.nirs.vmnet-broker.plist LICENSE
-	sudo ./install.sh
+install: dist
+	sudo ./install.sh build/vmnet-broker.tar.gz
 
 uninstall: uninstall.sh
 	sudo ./uninstall.sh
@@ -68,7 +68,7 @@ fmt:
 	clang-format -i broker/*.c client/*.c lib/*.c test/*.c include/*.h
 
 lint: scripts
-	shellcheck install.sh uninstall.sh
+	shellcheck -x install.sh uninstall.sh scripts/dist.sh
 	clang-format --dry-run --Werror broker/*.c client/*.c lib/*.c test/*.c include/*.h
 
 scripts: install.sh uninstall.sh
@@ -82,3 +82,6 @@ uninstall.sh: scripts/uninstall.sh.in scripts/common.sh
 	@echo "Building $@"
 	@sed -e '/#@INCLUDE_COMMON@/r scripts/common.sh' -e '/#@INCLUDE_COMMON@/d' $< > $@
 	@chmod +x $@
+
+dist: vmnet-broker scripts
+	./scripts/dist.sh

@@ -34,7 +34,7 @@ jobs:
           cache: false
 
       - name: Install dependencies
-        run: brew install clang-format bats-core
+        run: brew install clang-format bats-core tree
 
       # Hash Swift version + Package.resolved to invalidate cache when either changes.
       # Example version: "Apple Swift version 6.1 (swiftlang-6.1.0.110.21 clang-1700.0.13.3)"
