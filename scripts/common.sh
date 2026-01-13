@@ -4,6 +4,7 @@
 service_name="com.github.nirs.vmnet-broker"
 user_name="_vmnetbroker"
 group_name="_vmnetbroker"
+# shellcheck disable=SC2034  # Used by uninstall.sh and dist.sh
 install_dir="/Library/Application Support/vmnet-broker"
 launchd_dir="/Library/LaunchDaemons"
 log_dir="/Library/Logs/vmnet-broker"

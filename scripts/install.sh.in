@@ -4,69 +4,131 @@
 
 # NOTE: Generated from scripts/install.sh.in - do not edit
 
+# Install vmnet-broker
+#
+# Usage:
+#   # Download and install latest release
+#   curl -fsSL https://github.com/nirs/vmnet-broker/releases/latest/download/install.sh | sudo bash
+#
+#   # Download and install specific version
+#   curl -fsSL ... | sudo VMNET_BROKER_VERSION=v0.1.0 bash
+#
+#   # Install from local tarball (for development)
+#   sudo ./install.sh vmnet-broker.tar.gz
+
 set -eu -o pipefail
+
+# Global: temporary directory for downloaded tarball (cleaned up on exit)
+download_tmpdir=""
 
 #@INCLUDE_COMMON@
 
-if [[ $EUID -ne 0 ]]; then
-    fatal "This script must be run as root"
-fi
-
-trap 'fatal "Install failed"' ERR
-
-if service_installed; then
-    if ! try_stop_service; then
-        fatal "Install failed: failed to stop service (vms are running?)"
+# Wrap in main() to protect against partial download when piped to bash
+main() {
+    if [[ $EUID -ne 0 ]]; then
+        fatal "Install failed: this script must be run as root"
     fi
 
-    debug "Booting out service $service_name"
-    run launchctl bootout "system/$service_name" || true
-    run rm -f "$launchd_dir/$service_name.plist"
-    info "Booted out service $service_name"
-fi
+    local tarball="${1:-}"
 
-unique_id=$(find_unique_id)
+    if [ -z "$tarball" ]; then
+        create_download_tmpdir
+        tarball="$download_tmpdir/vmnet-helper.tar.gz"
+        download_release "$tarball"
+    fi
 
-if ! group_exists; then
-    debug "Creating system group $group_name id $unique_id"
-    run dscl . -create /Groups/$group_name
-    run dscl . -create /Groups/$group_name PrimaryGroupID "$unique_id"
-    info "Created system group $group_name"
-fi
+    trap 'fatal "Install failed"' ERR
 
-if ! user_exists; then
-    debug "Creating system user $user_name id $unique_id"
-    run dscl . -create /Users/$user_name
-    run dscl . -create /Users/$user_name UniqueID "$unique_id"
-    run dscl . -create /Users/$user_name PrimaryGroupID "$unique_id"
-    run dscl . -create /Users/$user_name UserShell /usr/bin/false
-    run dscl . -create /Users/$user_name RealName "Vmnet Broker Daemon"
-    run dscl . -create /Users/$user_name NFSHomeDirectory /var/empty
-    info "Created system user $user_name"
-fi
+    preinstall
+    install_files "$tarball"
+    postinstall
 
-debug "Installing broker in $install_dir"
-run mkdir -p "$install_dir"
-run install vmnet-broker "$install_dir"
-run install uninstall.sh "$install_dir"
-run install LICENSE "$install_dir"
-run chown -R root:wheel "$install_dir"
-info "Installed broker in $install_dir"
+    notice "Install completed"
+}
 
-debug "Creating log directory $log_dir"
-run mkdir -p "$log_dir"
-run chown -R $user_name:$user_name "$log_dir"
-run chmod 0755 "$log_dir"
-info "Created log directory $log_dir"
+# Craeate a temporary directroy that will be deleted when the process exits.
+create_download_tmpdir() {
+    download_tmpdir=$(mktemp -d -t vmnet-broker)
+    trap 'rm -rf "$download_tmpdir"' EXIT
+}
 
-debug "Installing service $launchd_dir/$service_name.plist"
-run cp $service_name.plist "$launchd_dir"
-run chown root:wheel "$launchd_dir/$service_name.plist"
-run chmod 0644 "$launchd_dir/$service_name.plist"
-info "Installed service $launchd_dir/$service_name.plist"
+# install files from the specified tarball.
+install_files() {
+    local tarball="$1"
+    info "Installing files"
+    run tar xzf "$tarball" -C /
+}
 
-debug "Bootstrapping service $service_name"
-run launchctl bootstrap system "$launchd_dir/$service_name.plist"
-info "Bootstrapped service $service_name"
+# Called before extracting files (like installer package preinstall)
+preinstall() {
+    if service_installed; then
+        if ! try_stop_service; then
+            fatal "Install failed: failed to stop service (vms are running?)"
+        fi
 
-notice "Install completed"
+        debug "Booting out service $service_name"
+        run launchctl bootout "system/$service_name" || true
+        info "Booted out service $service_name"
+    fi
+
+    # Create system group and user
+    unique_id=$(find_unique_id)
+
+    if ! group_exists; then
+        debug "Creating system group $group_name id $unique_id"
+        run dscl . -create /Groups/$group_name
+        run dscl . -create /Groups/$group_name PrimaryGroupID "$unique_id"
+        info "Created system group $group_name"
+    fi
+
+    if ! user_exists; then
+        debug "Creating system user $user_name id $unique_id"
+        run dscl . -create /Users/$user_name
+        run dscl . -create /Users/$user_name UniqueID "$unique_id"
+        run dscl . -create /Users/$user_name PrimaryGroupID "$unique_id"
+        run dscl . -create /Users/$user_name UserShell /usr/bin/false
+        run dscl . -create /Users/$user_name RealName "Vmnet Broker Daemon"
+        run dscl . -create /Users/$user_name NFSHomeDirectory /var/empty
+        info "Created system user $user_name"
+    fi
+}
+
+# Called after extracting files (like installer package postinstall)
+postinstall() {
+    # Ensure install directory has correct ownership (fix tampered permissions on reinstall)
+    run chown root:wheel "$install_dir"
+    run chmod 755 "$install_dir"
+
+    # Create and set log directory ownership
+    run mkdir -p "$log_dir"
+    run chown $user_name:$group_name "$log_dir"
+    run chmod 755 "$log_dir"
+
+    # Bootstrap service
+    debug "Bootstrapping service $service_name"
+    run launchctl bootstrap system "$launchd_dir/$service_name.plist"
+    info "Bootstrapped service $service_name"
+}
+
+# Download latest release tarball from github to output path.
+download_release() {
+    local output="$1"
+    local repo="nirs/vmnet-broker"
+    local version="${VMNET_BROKER_VERSION:-latest}"
+
+    info "Downloading vmnet-broker $version"
+
+    local url
+    if [ "$version" = "latest" ]; then
+        url="https://github.com/$repo/releases/latest/download/vmnet-broker.tar.gz"
+    else
+        url="https://github.com/$repo/releases/download/$version/vmnet-broker.tar.gz"
+    fi
+
+    debug "Downloading $url"
+    if ! curl --fail --silent --show-error --location --output "$output" "$url"; then
+        fatal "Install failed: failed to download $url"
+    fi
+}
+
+main "$@"
