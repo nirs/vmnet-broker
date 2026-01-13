@@ -3,14 +3,15 @@
 
 CC = clang
 
+# -arch: build universal binary for Intel and Apple Silicon
 # -Wall -Wextra: enable warnings
 # -O2: optimization level
 # -Iinclude: include directory for headers
 # -MMD: generate dependency files (.d) automatically
 # -MP: add phony targets for headers to avoid errors if headers are deleted
-CFLAGS = -Wall -Wextra -O2 -Iinclude -MMD -MP
+CFLAGS = -arch x86_64 -arch arm64 -Wall -Wextra -O2 -Iinclude -MMD -MP
 
-LDFLAGS = -framework CoreFoundation -framework vmnet
+LDFLAGS = -arch x86_64 -arch arm64 -framework CoreFoundation -framework vmnet
 
 build_dir = build
 broker_sources = $(wildcard broker/*.c) lib/common.c
