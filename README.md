@@ -106,6 +106,7 @@ the project.
 
 - [Configuration](docs/configuration.md)
 - [Integrations](docs/integrations.md)
+- [Protocol](docs/protocol.md)
 - [Development](docs/development.md)
 
 ## License
