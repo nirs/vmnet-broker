@@ -36,15 +36,21 @@ jobs:
       - name: Install dependencies
         run: brew install clang-format bats-core
 
+      # Hash Swift version + Package.resolved to invalidate cache when either changes.
+      # Example version: "Apple Swift version 6.1 (swiftlang-6.1.0.110.21 clang-1700.0.13.3)"
+      - name: Compute Swift cache key
+        id: swift-cache
+        run: |
+          hash=$({ swift --version; cat swift/Package.resolved; } | shasum -a 256 | awk '{print $1}')
+          echo "key=${{ runner.os }}-swift-$hash" >> $GITHUB_OUTPUT
+
       - name: Cache Swift packages
         uses: actions/cache@v4
         with:
           path: |
             swift/.build
             ~/.swiftpm/cache
-          key: ${{ runner.os }}-swift-${{ hashFiles('swift/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-swift-
+          key: ${{ steps.swift-cache.outputs.key }}
 
       - name: Cache Go build
         uses: actions/cache@v4
