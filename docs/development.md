@@ -79,3 +79,22 @@ To run the VMs use the Go or Swift test runners:
 
 > [!NOTE]
 > Login with user: ubuntu password: pass
+
+## How to create a release
+
+To create a release, create a tag from the branch to be released and push the
+tag to github:
+
+```console
+git checkout release-branch
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Pushing the tag triggers the [release workflow](.github/workflows/release.yaml),
+building the assets and creating the release draft.
+
+The draft can be inspected and edited as needed before publishing the release.
+
+After the release is published it cannot be modified, since we use
+[immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).
