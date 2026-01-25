@@ -94,5 +94,12 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmnet-broker.log
+          path: /Library/Logs/vmnet-broker/vmnet-broker.log
+
       - name: Uninstall
         run: make uninstall
