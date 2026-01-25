@@ -10,6 +10,8 @@
 
 set -eu -o pipefail
 
+BUILD=${BUILD:-build}
+
 # Source common.sh for shared variables
 # shellcheck source=scripts/common.sh
 source "$(dirname "$0")/common.sh"
@@ -17,7 +19,7 @@ source "$(dirname "$0")/common.sh"
 version="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo "dev")}"
 echo "Version: $version"
 
-root_dir="build/root"
+root_dir="$BUILD/root"
 
 rm -rf "$root_dir"
 mkdir -p "$root_dir"
@@ -45,14 +47,14 @@ find "$root_dir" -exec touch -d "$commit_time_iso" {} \;
 echo "Created target root directory"
 tree -pD "$root_dir"
 
-echo "Creating build/vmnet-broker.tar.gz"
+echo "Creating $BUILD/vmnet-broker.tar.gz"
 
 # Create reproducible archive with files only (sorted, uid/gid=0)
 # Including only files ensures tar cannot modify existing system directories.
 (cd "$root_dir" && find -s . -type f) | \
     tar --create \
         --verbose \
-        --file build/vmnet-broker.tar \
+        --file "$BUILD/vmnet-broker.tar" \
         --uid 0 \
         --gid 0 \
         --no-recursion \
@@ -60,7 +62,7 @@ echo "Creating build/vmnet-broker.tar.gz"
         --files-from /dev/stdin
 
 # Compress without embedding filename/timestamp
-rm -f build/vmnet-broker.tar.gz
-gzip -9 --no-name build/vmnet-broker.tar
+rm -f "$BUILD/vmnet-broker.tar.gz"
+gzip -9 --no-name "$BUILD/vmnet-broker.tar"
 
-echo "Created build/vmnet-broker.tar.gz"
+echo "Created $BUILD/vmnet-broker.tar.gz"
