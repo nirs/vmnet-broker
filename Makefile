@@ -28,6 +28,16 @@ test: test-c
 	cd go && go test -v ./vmnet_broker -count 1
 	cd swift && swift test
 
+# Generate new version.h if needed to avoid unnecessary rebuilds.
+include/version.h: FORCE
+	@./scripts/gen-version.sh
+
+# Empty target to force recipe execution (see GNU Make manual)
+FORCE:
+
+# broker/broker.c includes version.h
+$(BUILD)/broker/broker.o: include/version.h
+
 vmnet-broker: $(broker_objects)
 	$(CC) $(LDFLAGS) $(broker_objects) -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
@@ -59,7 +69,7 @@ uninstall: uninstall.sh
 	sudo ./uninstall.sh
 
 clean:
-	rm -f vmnet-broker test-c test-swift test-go install.sh uninstall.sh
+	rm -f vmnet-broker test-c test-swift test-go install.sh uninstall.sh include/version.h
 	rm -rf $(BUILD)
 	cd swift && swift package clean
 	cd go && go clean
@@ -68,7 +78,7 @@ fmt:
 	clang-format -i broker/*.c client/*.c lib/*.c test/*.c include/*.h
 
 lint: scripts
-	shellcheck -x install.sh uninstall.sh scripts/dist.sh
+	shellcheck -x install.sh uninstall.sh scripts/dist.sh scripts/gen-version.sh
 	clang-format --dry-run --Werror broker/*.c client/*.c lib/*.c test/*.c include/*.h
 
 scripts: install.sh uninstall.sh
