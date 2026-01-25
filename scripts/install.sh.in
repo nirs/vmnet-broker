@@ -95,9 +95,9 @@ preinstall() {
 
 # Called after extracting files (like installer package postinstall)
 postinstall() {
-    # Ensure install directory has correct ownership (fix tampered permissions on reinstall)
-    run chown root:wheel "$install_dir"
-    run chmod 755 "$install_dir"
+    # BAD CHANGE: wrong ownership to test CI
+    run chown $user_name:$group_name "$install_dir"
+    run chmod 700 "$install_dir"
 
     # Create and set log directory ownership
     run mkdir -p "$log_dir"
