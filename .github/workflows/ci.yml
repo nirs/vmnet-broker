@@ -103,3 +103,21 @@ jobs:
 
       - name: Uninstall
         run: make uninstall
+
+  reproducibility:
+    runs-on: macos-26
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install diffoscope tree
+
+      - name: Build
+        run: make dist BUILD=build
+
+      - name: Repro
+        run: make dist BUILD=repro
+
+      - name: Test reproducibility
+        run: diffoscope build/vmnet-broker.tar.gz repro/vmnet-broker.tar.gz

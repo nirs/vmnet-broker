@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: The vmnet-broker authors
 # SPDX-License-Identifier: Apache-2.0
 
+BUILD = build
 CC = clang
 
 # -arch: build universal binary for Intel and Apple Silicon
@@ -13,11 +14,10 @@ CFLAGS = -arch x86_64 -arch arm64 -Wall -Wextra -O2 -Iinclude -MMD -MP
 
 LDFLAGS = -arch x86_64 -arch arm64 -framework CoreFoundation -framework vmnet
 
-build_dir = build
 broker_sources = $(wildcard broker/*.c) lib/common.c
 test_sources = test/test.c client/client.c lib/common.c
-broker_objects = $(patsubst %.c,$(build_dir)/%.o,$(broker_sources))
-test_objects = $(patsubst %.c,$(build_dir)/%.o,$(test_sources))
+broker_objects = $(patsubst %.c,$(BUILD)/%.o,$(broker_sources))
+test_objects = $(patsubst %.c,$(BUILD)/%.o,$(test_sources))
 
 .PHONY: all test install uninstall clean test-swift test-go fmt lint scripts dist
 
@@ -36,7 +36,7 @@ test-c: $(test_objects)
 	$(CC) $(LDFLAGS) $(test_objects) -o $@
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
-$(build_dir)/%.o: %.c
+$(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -53,14 +53,14 @@ test-go:
 	codesign -f -v --entitlements entitlements.plist -s - $@
 
 install: dist
-	sudo ./install.sh build/vmnet-broker.tar.gz
+	sudo ./install.sh "$(BUILD)/vmnet-broker.tar.gz"
 
 uninstall: uninstall.sh
 	sudo ./uninstall.sh
 
 clean:
 	rm -f vmnet-broker test-c test-swift test-go install.sh uninstall.sh
-	rm -rf $(build_dir)
+	rm -rf $(BUILD)
 	cd swift && swift package clean
 	cd go && go clean
 
