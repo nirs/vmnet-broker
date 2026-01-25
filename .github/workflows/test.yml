@@ -26,8 +26,6 @@ jobs:
 
   test:
     runs-on: macos-26
-    env:
-      SKIP_DOCC_PLUGIN: "1"
     steps:
       - uses: actions/checkout@v4
 
