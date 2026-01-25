@@ -9,6 +9,7 @@
 #include "broker-xpc.h"
 #include "common.h"
 #include "log.h"
+#include "version.h"
 #include "vmnet-broker.h"
 
 bool verbose = true;
@@ -184,7 +185,13 @@ static void setup_signal_handlers(void) {
 }
 
 int main() {
-    INFOF("[%s] starting pid=%d", main_context.name, getpid());
+    INFOF(
+        "[%s] starting version=%s commit=%s pid=%d",
+        main_context.name,
+        GIT_VERSION,
+        GIT_COMMIT,
+        getpid()
+    );
 
     setup_signal_handlers();
 

@@ -8,6 +8,7 @@
 /vmnet-broker
 /install.sh
 /uninstall.sh
+/include/version.h
 /build/
 /repro/
 
