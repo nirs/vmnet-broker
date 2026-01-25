@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: The vmnet-broker authors
+# SPDX-License-Identifier: Apache-2.0
+
+---
+name: Install
+
+on:
+  # Test install.sh changes against latest release
+  pull_request:
+    paths:
+      - scripts/install.sh.in
+      - scripts/common.sh
+  # Run after release workflow completes successfully
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  # Run weekly to detect regressions
+  schedule:
+    - cron: '0 4 * * 0'  # Runs at 4AM every Sunday
+  # Allow manual triggering for debugging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install test
+    # Skip workflow_run events when release workflow failed
+    # (pull_request, schedule, and workflow_dispatch always run)
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: macos-26
+    steps:
+      - name: Host info
+        run: |
+          uname -a
+          sw_vers
+
+      - name: Install dependencies
+        run: brew install tree
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # For PRs: test modified install.sh with locally built tarball
+      - name: Install via script (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          make dist
+          sudo ./install.sh build/vmnet-broker.tar.gz
+
+      # For releases/schedule/manual: test published install.sh with latest release
+      - name: Install via script (release)
+        if: github.event_name != 'pull_request'
+        run: |
+          curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/install.sh \
+            | sudo bash
+
+      - name: Verify installation
+        run: |
+          echo "Installed files:"
+          tree -pug "/Library/Application Support/vmnet-broker"
+          tree -pug /Library/LaunchDaemons
+          tree -pug /Library/Logs/vmnet-broker
+
+          echo "Installation logs:"
+          log show --info --predicate 'sender == "logger" AND eventMessage CONTAINS "vmnet-broker"' --last 5m
+
+          # Check system user and group
+          echo "System user:"
+          dscl . -read /Users/_vmnetbroker
+          echo "System group:"
+          dscl . -read /Groups/_vmnetbroker
+
+          # Check service is registered (system service requires root)
+          # Note: broker is on-demand, starts only when a client requests a network
+          if ! sudo launchctl list com.github.nirs.vmnet-broker >/dev/null 2>&1; then
+            echo "Service not registered"
+            exit 1
+          fi
+
+          echo "Installation verified successfully"
+
+      - name: Test uninstall
+        run: |
+          sudo /Library/Application\ Support/vmnet-broker/uninstall.sh
+
+          echo "Uninstall logs:"
+          log show --info --predicate 'sender == "logger" AND eventMessage CONTAINS "vmnet-broker"' --last 5m
+
+          echo "Remaining files:"
+          tree -pug /Library/LaunchDaemons
+
+          # Verify uninstalled
+          if [[ -d "/Library/Application Support/vmnet-broker" ]]; then
+            echo "vmnet-broker directory still exists"
+            exit 1
+          fi
+
+          if [[ -d "/Library/Logs/vmnet-broker" ]]; then
+            echo "vmnet-broker log directory still exists"
+            exit 1
+          fi
+
+          if sudo launchctl list com.github.nirs.vmnet-broker >/dev/null 2>&1; then
+            echo "Service still registered"
+            exit 1
+          fi
+
+          if dscl . -read /Users/_vmnetbroker >/dev/null 2>&1; then
+            echo "System user still exists"
+            exit 1
+          fi
+
+          if dscl . -read /Groups/_vmnetbroker >/dev/null 2>&1; then
+            echo "System group still exists"
+            exit 1
+          fi
+
+          echo "Uninstall verified successfully"
