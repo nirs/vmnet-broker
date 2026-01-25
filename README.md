@@ -26,6 +26,30 @@ project does this independently:
 - Multiple XPC services running on user machines
 - Manual start/stop commands (e.g. `container system start/stop`)
 
+## Installation
+
+To install the latest version run:
+
+```console
+curl -fsSL https://github.com/nirs/vmnet-broker/releases/latest/download/install.sh | sudo bash
+```
+
+You can download the install script for inspection and run it locally:
+
+```console
+curl -fsSL https://github.com/nirs/vmnet-broker/releases/latest/download/install.sh -o install.sh
+less install.sh
+sudo bash install.sh
+```
+
+To uninstall:
+
+```console
+sudo /Library/Application\ Support/vmnet-broker/uninstall.sh
+```
+
+See [Installation details](docs/installation.md) for more information.
+
 ## How it works
 
 vmnet-broker is a single shared XPC service for all apps. Instead of each
@@ -104,6 +128,7 @@ the project.
 
 ## Documentation
 
+- [Installation details](docs/installation.md)
 - [Configuration](docs/configuration.md)
 - [Integrations](docs/integrations.md)
 - [Protocol](docs/protocol.md)
