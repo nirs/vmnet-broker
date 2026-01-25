@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: The vmnet-broker authors
+# SPDX-License-Identifier: Apache-2.0
+
+---
+name: Release
+
+on:
+  # The only way to trigger the workflow when using immutable releases is to
+  # run when pushing a tag.
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Create release
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - name: Release info
+        run: |
+          echo "Triggered by tag: ${{ github.ref_name }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install requirements
+        run: brew install diffoscope tree
+
+      - name: Build
+        run: make dist BUILD=build
+
+      - name: Test reproducibility
+        run: |
+          make dist BUILD=repro
+          diffoscope build/vmnet-broker.tar.gz repro/vmnet-broker.tar.gz
+
+      - name: Create release and upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        # Create a draft for pre-release. The release will be changed to be
+        # "latest" after testing.
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --draft \
+            --prerelease \
+            --generate-notes \
+            build/vmnet-broker.tar.gz \
+            install.sh
