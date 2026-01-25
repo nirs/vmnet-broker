@@ -19,6 +19,18 @@ The install script requires root to:
 > The install will fail if VMs are currently using the broker, to prevent
 > breaking running virtual machines.
 
+### Example output
+
+```console
+$ curl -fsSL https://github.com/nirs/vmnet-broker/releases/latest/download/install.sh | sudo bash
+▫️  Downloading vmnet-broker latest
+▫️  Created system group _vmnetbroker
+▫️  Created system user _vmnetbroker
+▫️  Installing files
+▫️  Bootstrapped service com.github.nirs.vmnet-broker
+✅ Install completed
+```
+
 ## Installing a specific version
 
 To install a specific version, set the `VMNET_BROKER_VERSION` environment
@@ -42,6 +54,18 @@ The uninstall script:
 > [!NOTE]
 > The uninstall will fail if VMs are currently using the broker, to prevent
 > breaking running virtual machines.
+
+### Example output
+
+```console
+$ sudo /Library/Application\ Support/vmnet-broker/uninstall.sh
+▫️  Booted out service com.github.nirs.vmnet-broker
+▫️  Deleted /Library/Application Support/vmnet-broker
+▫️  Deleted /Library/Logs/vmnet-broker
+▫️  Deleted system group _vmnetbroker
+▫️  Deleted system user _vmnetbroker
+✅ Uninstall completed
+```
 
 ## Privilege separation
 
