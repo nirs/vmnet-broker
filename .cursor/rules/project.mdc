@@ -18,6 +18,7 @@ alwaysApply: true
 - Keep changes small to make human review easy and avoid mistakes
 - Update documentation if needed
 - Run `make fmt` to format code with clang-format
+- Use proper punctuation in comments (end sentences with periods)
 - Avoid unrelated changes (spelling, whitespace, etc.)
 
 ## Building
@@ -42,6 +43,11 @@ alwaysApply: true
 ## Error handling
 
 - Check existing code for error handling conventions
+
+## Git workflow
+
+- NEVER commit directly to main branch. Always create a feature branch first.
+- If accidentally committed to main, move the commit to a new branch and reset main.
 
 ## Commit messages
 
