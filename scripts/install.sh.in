@@ -112,7 +112,8 @@ postinstall() {
 
 # Download latest release tarball from github to output path.
 download_release() {
-    local output="$1"
+    # BAD CHANGE: wrong output path to test install workflow
+    local output="${1}x"
     local repo="nirs/vmnet-broker"
     local version="${VMNET_BROKER_VERSION:-latest}"
 
