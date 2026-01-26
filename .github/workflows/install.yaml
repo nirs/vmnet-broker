@@ -5,19 +5,19 @@
 name: Install
 
 on:
-  # Test install.sh changes against latest release
+  # Test install.sh changes against latest release.
   pull_request:
     paths:
       - scripts/install.sh.in
       - scripts/common.sh
-  # Run after release workflow completes successfully
+  # Run after release workflow completes successfully.
   workflow_run:
     workflows: [Release]
     types: [completed]
-  # Run weekly to detect regressions
+  # Run weekly to detect regressions.
   schedule:
-    - cron: '0 4 * * 0'  # Runs at 4AM every Sunday
-  # Allow manual triggering for debugging
+    - cron: '0 4 * * 0'  # Runs at 4AM every Sunday.
+  # Allow manual triggering for debugging.
   workflow_dispatch:
 
 permissions:
@@ -26,8 +26,8 @@ permissions:
 jobs:
   install:
     name: Install test
-    # Skip workflow_run events when release workflow failed
-    # (pull_request, schedule, and workflow_dispatch always run)
+    # Skip workflow_run events when release workflow failed.
+    # pull_request, schedule, and workflow_dispatch always run.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: macos-26
     steps:
@@ -39,19 +39,19 @@ jobs:
       - name: Install dependencies
         run: brew install tree
 
-      - name: Checkout source
+      - name: Checkout source (pull request only)
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # For PRs: test modified install.sh with locally built tarball
+      # For PRs: test modified install.sh against latest release.  Installing
+      # from local tarball is covered by the test workflow.
       - name: Install via script (pull request)
         if: github.event_name == 'pull_request'
         run: |
-          make dist
-          sudo ./install.sh build/vmnet-broker.tar.gz
+          make install.sh
+          sudo ./install.sh
 
-      # For releases/schedule/manual: test published install.sh with latest release
+      # For releases/schedule/manual: test published install.sh with latest release.
       - name: Install via script (release)
         if: github.event_name != 'pull_request'
         run: |
@@ -68,14 +68,14 @@ jobs:
           echo "Installation logs:"
           log show --info --predicate 'sender == "logger" AND eventMessage CONTAINS "vmnet-broker"' --last 5m
 
-          # Check system user and group
+          # Check system user and group.
           echo "System user:"
           dscl . -read /Users/_vmnetbroker
           echo "System group:"
           dscl . -read /Groups/_vmnetbroker
 
-          # Check service is registered (system service requires root)
-          # Note: broker is on-demand, starts only when a client requests a network
+          # Check service is registered. System service requires root.
+          # Note: broker is on-demand, starts only when a client requests a network.
           if ! sudo launchctl list com.github.nirs.vmnet-broker >/dev/null 2>&1; then
             echo "Service not registered"
             exit 1
@@ -93,7 +93,7 @@ jobs:
           echo "Remaining files:"
           tree -pug /Library/LaunchDaemons
 
-          # Verify uninstalled
+          # Verify uninstalled.
           if [[ -d "/Library/Application Support/vmnet-broker" ]]; then
             echo "vmnet-broker directory still exists"
             exit 1
