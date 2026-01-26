@@ -47,6 +47,7 @@ alwaysApply: true
 ## Git workflow
 
 - NEVER commit directly to main branch. Always create a feature branch first.
+- NEVER push to GitHub without user review.
 - If accidentally committed to main, move the commit to a new branch and reset main.
 - Keep commits small and focused. One logical change per commit.
 - Avoid complicated git operations like amending multiple changes together.
