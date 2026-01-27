@@ -26,6 +26,27 @@ project does this independently:
 - Multiple XPC services running on user machines
 - Manual start/stop commands (e.g. `container system start/stop`)
 
+## How it works
+
+vmnet-broker is a single shared XPC service for all apps. Instead of each
+project building its own network service, they all connect to the broker.
+
+The broker provides "shared" and "host" networks out of the box. Apps call
+`acquireNetwork()` with a network name. The broker creates the network or
+returns an existing one if other VMs are already using it. Networks are
+reference-counted and cleaned up when the last client disconnects.
+
+![vmnet-broker architecture](media/architecture.svg)
+
+For developers:
+- Acquire a network with a single function call
+- Client libraries for C, Go, and Swift
+- Networks are created and removed automatically
+
+For users:
+- One broker for all tools instead of separate XPC services per project
+- VMs from lima, podman, vfkit, minikube can share the same network
+
 ## Installation
 
 To install the latest version run:
@@ -49,27 +70,6 @@ sudo /Library/Application\ Support/vmnet-broker/uninstall.sh
 ```
 
 See [Installation details](docs/installation.md) for more information.
-
-## How it works
-
-vmnet-broker is a single shared XPC service for all apps. Instead of each
-project building its own network service, they all connect to the broker.
-
-The broker provides "shared" and "host" networks out of the box. Apps call
-`acquireNetwork()` with a network name. The broker creates the network or
-returns an existing one if other VMs are already using it. Networks are
-reference-counted and cleaned up when the last client disconnects.
-
-![vmnet-broker architecture](media/architecture.svg)
-
-For developers:
-- Acquire a network with a single function call
-- Client libraries for C, Go, and Swift
-- Networks are created and removed automatically
-
-For users:
-- One broker for all tools instead of separate XPC services per project
-- VMs from lima, podman, vfkit, minikube can share the same network
 
 ## Using the broker in your application
 
