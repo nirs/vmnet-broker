@@ -103,7 +103,7 @@ EOF
 create_config_json() {
     cat <<EOF > "${VM_DIR}/config.json"
 {
-  "cpus": 1,
+  "cpus": 2,
   "memory": 1024,
   "mac": "${MAC_ADDRESS}",
   "bootloader": {
