@@ -79,7 +79,7 @@ To access the broker you can use the C, Swift or Go client libraries:
 
 ```c
 vmnet_broker_return_t broker_status;
-xpc_object_t serialization = vmnet_broker_acquire_network("default", &broker_status);
+xpc_object_t serialization = vmnet_broker_acquire_network("shared", &broker_status);
 if (serialization == NULL) {
     ERRORF("failed to start broker session: (%d) %s",
            broker_status, vmnet_broker_strerror(broker_status));
@@ -95,7 +95,7 @@ if (serialization == NULL) {
 ```swift
 let serialization: xpc_object_t
 do {
-    serialization = try VmnetBroker.acquireNetwork(named: "default")
+    serialization = try VmnetBroker.acquireNetwork(named: "shared")
 } catch {
     logger.error("Failed to get network from broker: \(error)")
     exit(EXIT_FAILURE)
@@ -108,7 +108,7 @@ do {
 ### Go
 
 ```go
-serialization, err := vmnet_broker.AcquireNetwork("default")
+serialization, err := vmnet_broker.AcquireNetwork("shared")
 if err != nil {
     return nil, fmt.Errorf("failed to acquire network: %w", err)
 }
