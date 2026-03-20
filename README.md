@@ -11,8 +11,10 @@ Apple Virtualization framework.
 ## Why
 
 macOS 26 added native vmnet support to the Virtualization framework. vmnet
-networks can reach up to 80 Gbit/s, about 6x faster than file-handle based
-networks.
+networks can reach up to 120 Gbit/s, up to 2-9 times faster than file-handle
+based networks.
+
+![Native vmnet performance](media/performance.png)
 
 The catch: vmnet networks are bound to the process that creates them. When
 the process exits, the network is destroyed, even if VMs are still using it.
