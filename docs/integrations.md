@@ -19,6 +19,8 @@ vfkit --device virtio-net,vmnet,network=shared ...
 The virtual machine will use the "shared" builtin network. If you start multiple
 instances they will use the same network and can communicate.
 
+For more info see https://github.com/crc-org/vfkit/issues/439
+
 ## Using with Minikube
 
 To start a cluster with the vfkit driver using the vmnet "shared" network:
